@@ -56,3 +56,47 @@ object Repo {
         }
         return out
     }
+
+    fun recents(ctx: Context, limit: Int = 60): List<Person> {
+        if (!has(ctx, Manifest.permission.READ_CALL_LOG)) return emptyList()
+        val out = ArrayList<Person>()
+        val seen = HashSet<String>()
+        val proj = arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME)
+        ctx.contentResolver.query(
+            CallLog.Calls.CONTENT_URI, proj, null, null, CallLog.Calls.DATE + " DESC"
+        )?.use { c ->
+            while (c.moveToNext() && out.size < limit) {
+                val num = c.getString(0) ?: continue
+                if (num.isBlank()) continue
+                val key = num.filter { it.isDigit() }.takeLast(9)
+                if (!seen.add(key)) continue
+                val name = c.getString(1)
+                out.add(Person(if (name.isNullOrBlank()) num else name, num))
+            }
+        }
+        return out
+    }
+
+    private fun contactIdFor(ctx: Context, number: String): Long? {
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)
+        )
+        var id: Long? = null
+        ctx.contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup._ID), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) id = c.getLong(0) }
+        return id
+    }
+
+    fun email(ctx: Context, p: Person): String? {
+        if (!has(ctx, Manifest.permission.READ_CONTACTS)) return null
+        val id = p.contactId ?: contactIdFor(ctx, p.number) ?: return null
+        var result: String? = null
+        ctx.contentResolver.query(
+            ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+            arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS),
+            ContactsContract.CommonDataKinds.Email.CONTACT_ID + "=?",
+            arrayOf(id.toString()), null
+        )?.use { c -> if (c.moveToFirst()) result = c.getString(0) }
+        return result
+    }
+}
