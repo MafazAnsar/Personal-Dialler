@@ -8,6 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check files are complete
+        run: |
+          for f in $(find app/src -name '*.kt'); do
+            o=$(tr -cd '{' < "$f" | wc -c)
+            c=$(tr -cd '}' < "$f" | wc -c)
+            if [ "$o" != "$c" ]; then
+              echo "::error file=$f::Looks cut off or damaged ($o open vs $c close braces). Re-upload this file."
+              exit 1
+            fi
+          done
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
