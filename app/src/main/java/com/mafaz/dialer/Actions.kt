@@ -19,6 +19,8 @@ object Actions {
         }
     }
 
+    private fun cc(ctx: Context): String = Ui.cfg(ctx).getString("cc", "94") ?: "94"
+
     private fun launch(ctx: Context, i: Intent) {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
@@ -37,11 +39,11 @@ object Actions {
     fun sms(ctx: Context, p: Person) =
         launch(ctx, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(p.number))))
 
-    fun whatsapp(ctx: Context, p: Person, cc: String) =
-        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/" + intl(p.number, cc))))
+    fun whatsapp(ctx: Context, p: Person) =
+        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/" + intl(p.number, cc(ctx)))))
 
-    fun telegram(ctx: Context, p: Person, cc: String) =
-        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?phone=" + intl(p.number, cc))))
+    fun telegram(ctx: Context, p: Person) =
+        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?phone=" + intl(p.number, cc(ctx)))))
 
     fun email(ctx: Context, p: Person) {
         val addr = Repo.email(ctx, p)
@@ -50,5 +52,17 @@ object Actions {
             return
         }
         launch(ctx, Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(addr))))
+    }
+
+    fun note(ctx: Context, p: Person) = quick(ctx, "note", p)
+
+    fun block(ctx: Context, p: Person) = quick(ctx, "block", p)
+
+    private fun quick(ctx: Context, mode: String, p: Person) {
+        val i = Intent(ctx, QuickActivity::class.java)
+        i.putExtra("mode", mode)
+        i.putExtra("number", p.number)
+        i.putExtra("name", p.name)
+        launch(ctx, i)
     }
 }

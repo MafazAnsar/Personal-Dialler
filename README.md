@@ -1,18 +1,18 @@
-# Personal Dialler (v0.1) - floating dots
+# Personal Dialler v0.2
 
-Drupe-style floating dots. Swipe inward, hold a contact, drag it onto Call / SMS / WhatsApp / Telegram / Email.
-No internet permission, no accounts, nothing leaves the phone.
+Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
-## Get the APK (no Android Studio needed)
-1. Create a new private repo on GitHub.
-2. Push this folder:
-   git init && git add . && git commit -m "first" && git branch -M main
-   git remote add origin <your-repo-url> && git push -u origin main
-3. On GitHub: Actions > "Build APK" > latest run > Artifacts > download "PersonalDialer-debug-apk".
-4. Unzip, copy app-debug.apk to the phone, install (allow "install unknown apps").
-5. Open the app, tick steps 1-3, tap "Start floating dots".
+## Build
+Push to GitHub (branch main). Actions > "Build APK" > download the artifact, install app-debug.apk.
+The first step of the build checks that no Kotlin file was cut off during upload.
 
-If the build fails, open the failed run, copy the red error lines and paste them back to Claude.
+## First run
+Open the app and go through steps 1-5. Step 4 makes it your Phone app, step 5 turns on caller ID and blocking.
+Then tap "Start floating dots".
 
-## Not in v0.1 yet
-Default Phone role, keypad, in-call screen, caller identity from notes, block list, post-call popup.
+## Features
+- Dots: swipe in, drag a contact or favourite onto Call / SMS / WhatsApp / Telegram / Email / Note / Block
+- Panel tabs: Recent (type, time, duration, missed in red), Contacts, Keypad; favourites strip on top
+- Phone app: incoming and in-call screens, mute, speaker, hold, keypad tones, notes, block
+- Notes and a block list stored only on the phone; popup after each call
+- Settings: dark or light, accent colour, dot size and opacity, panel width, side

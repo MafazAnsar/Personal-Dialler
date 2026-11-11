@@ -41,13 +41,14 @@ class OverlayService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
 
     override fun onDestroy() {
-        closePanel()
+        panel?.let { try { wm.removeView(it) } catch (e: Exception) { } }
+        panel = null
         handle?.let { try { wm.removeView(it) } catch (e: Exception) { } }
         handle = null
         super.onDestroy()
     }
 
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int) = Ui.dp(this, v)
 
     private fun startInForeground() {
         val nm = getSystemService(NotificationManager::class.java)
@@ -74,25 +75,26 @@ class OverlayService : Service() {
     private fun showHandle() {
         val left = prefs.getString("side", "left") == "left"
         val svc = this
-        val box = LinearLayout(svc).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(14), dp(12), dp(14))
-            alpha = 0.8f
-            background = GradientDrawable().apply {
-                setColor(0x33000000)
-                cornerRadius = dp(14).toFloat()
-            }
-            repeat(3) {
-                val dot = View(svc)
-                dot.background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(0xFF90CAF9.toInt())
-                }
-                val lp = LinearLayout.LayoutParams(dp(7), dp(7))
-                lp.setMargins(0, dp(3), 0, dp(3))
-                addView(dot, lp)
-            }
+        val dotDp = when (prefs.getInt("dotsize", 1)) {
+            0 -> 6
+            1 -> 8
+            else -> 11
+        }
+        val box = LinearLayout(svc)
+        box.orientation = LinearLayout.VERTICAL
+        box.gravity = Gravity.CENTER
+        box.setPadding(dp(12), dp(14), dp(12), dp(14))
+        box.alpha = max(20, prefs.getInt("dotalpha", 80)) / 100f
+        val pill = GradientDrawable()
+        pill.setColor(0x33000000)
+        pill.cornerRadius = dp(14).toFloat()
+        box.background = pill
+        repeat(3) {
+            val dot = View(svc)
+            dot.background = Ui.circle(Ui.accent(svc))
+            val lp = LinearLayout.LayoutParams(dp(dotDp), dp(dotDp))
+            lp.setMargins(0, dp(3), 0, dp(3))
+            box.addView(dot, lp)
         }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -143,8 +145,7 @@ class OverlayService : Service() {
     private fun openPanel() {
         if (panel != null) return
         val left = prefs.getString("side", "left") == "left"
-        val cc = prefs.getString("cc", "94") ?: "94"
-        val p = PanelView(this, left, cc) { closePanel() }
+        val p = PanelView(this, left) { closePanel() }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -160,8 +161,11 @@ class OverlayService : Service() {
     }
 
     private fun closePanel() {
-        panel?.let { try { wm.removeView(it) } catch (e: Exception) { } }
-        panel = null
-        handle?.visibility = View.VISIBLE
+        val p = panel ?: return
+        p.dismiss {
+            try { wm.removeView(p) } catch (e: Exception) { }
+            if (panel === p) panel = null
+            handle?.visibility = View.VISIBLE
+        }
     }
 }
