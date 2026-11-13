@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.CallLog
 import android.text.Editable
 import android.text.TextWatcher
@@ -20,7 +21,6 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
-import android.widget.Toast
 import kotlin.concurrent.thread
 
 interface DragHost {
@@ -33,7 +33,8 @@ interface DragHost {
 class ContactsPane(
     ctx: Context,
     private val host: DragHost,
-    private val onDone: () -> Unit
+    private val onDone: () -> Unit,
+    private val onKeypad: () -> Unit
 ) : LinearLayout(ctx) {
 
     private class Holder(val av: AvatarView, val name: TextView, val sub: TextView)
@@ -47,17 +48,19 @@ class ContactsPane(
     private var shown: List<Person> = emptyList()
     private var tab = 0
     private var query = ""
+    private var reversed = Ui.cfg(ctx).getBoolean("revlist", false)
     private var lastX = 0f
     private var lastY = 0f
+    private var lastTapKey = ""
+    private var lastTapTime = 0L
 
     private val search = EditText(ctx)
     private val strip = LinearLayout(ctx)
     private val stripScroll = HorizontalScrollView(ctx)
-    private val tabs = arrayOf(TextView(ctx), TextView(ctx), TextView(ctx))
+    private val tabs = arrayOf(TextView(ctx), TextView(ctx))
     private val list = ListView(ctx)
     private val empty = TextView(ctx)
     private val listFrame = FrameLayout(ctx)
-    private val keypad = KeypadView(ctx, showCall = true, onCall = { n -> callNumber(n) })
 
     private val adapter = object : BaseAdapter() {
         override fun getCount() = shown.size
@@ -76,7 +79,7 @@ class ContactsPane(
         background = Ui.round(Ui.bg(ctx), dp(18))
         setPadding(dp(8), dp(8), dp(8), dp(8))
 
-        search.hint = "Search name or number"
+        search.hint = "Search contacts and recents"
         search.setSingleLine()
         search.textSize = 15f
         search.setTextColor(Ui.text(ctx))
@@ -91,16 +94,29 @@ class ContactsPane(
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
-        addView(search, LinearLayout.LayoutParams(MP, WC))
+        val head = LinearLayout(ctx)
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.addView(search, LinearLayout.LayoutParams(0, WC, 1f))
+        val kb = IconView(ctx, "keypad")
+        kb.setOnClickListener { onKeypad() }
+        val kbLp = LinearLayout.LayoutParams(dp(40), dp(40))
+        kbLp.leftMargin = dp(6)
+        head.addView(kb, kbLp)
+        val sb = IconView(ctx, "sort")
+        sb.setOnClickListener { toggleOrder() }
+        val sbLp = LinearLayout.LayoutParams(dp(40), dp(40))
+        sbLp.leftMargin = dp(6)
+        head.addView(sb, sbLp)
+        addView(head, LinearLayout.LayoutParams(MP, WC))
 
         stripScroll.isHorizontalScrollBarEnabled = false
-        strip.orientation = LinearLayout.HORIZONTAL
+        strip.orientation = LinearLayout.VERTICAL
         stripScroll.addView(strip)
         addView(stripScroll, LinearLayout.LayoutParams(MP, WC))
 
         val tabRow = LinearLayout(ctx)
-        val labels = arrayOf("Recent", "Contacts", "Keypad")
-        for (i in 0..2) {
+        val labels = arrayOf("Recent", "Contacts")
+        for (i in 0..1) {
             tabs[i].text = labels[i]
             tabs[i].gravity = Gravity.CENTER
             tabs[i].textSize = 14f
@@ -118,7 +134,9 @@ class ContactsPane(
         list.setSelector(ColorDrawable(0x33FFFFFF))
         list.adapter = adapter
         list.emptyView = empty
-        list.setOnItemClickListener { _, _, _, _ -> hint() }
+        list.setOnItemClickListener { _, _, pos, _ ->
+            if (pos in shown.indices) tapped(shown[pos], "l" + pos)
+        }
         list.setOnItemLongClickListener { _, _, pos, _ ->
             if (pos in shown.indices) {
                 list.parent.requestDisallowInterceptTouchEvent(true)
@@ -130,20 +148,36 @@ class ContactsPane(
         listFrame.addView(list, FrameLayout.LayoutParams(MP, MP))
         listFrame.addView(empty, FrameLayout.LayoutParams(MP, WC))
         addView(listFrame, LinearLayout.LayoutParams(MP, 0, 1f))
-        addView(keypad, LinearLayout.LayoutParams(MP, 0, 1f))
         refresh()
         load()
     }
 
     private fun dp(v: Int) = Ui.dp(context, v)
 
-    private fun hint() {
-        Toast.makeText(context, "Hold and drag onto an action", Toast.LENGTH_SHORT).show()
+    fun setQuery(q: String) {
+        if (search.text.toString() != q) search.setText(q)
     }
 
-    private fun callNumber(n: String) {
-        if (n.isBlank()) return
-        Actions.call(context, Person(n, n))
+    private fun toggleOrder() {
+        reversed = !reversed
+        Ui.cfg(context).edit().putBoolean("revlist", reversed).apply()
+        refresh()
+    }
+
+    private fun tapped(p: Person, tag: String) {
+        val now = SystemClock.uptimeMillis()
+        if (tag == lastTapKey && now - lastTapTime < 350) {
+            lastTapKey = ""
+            doubleTap(p)
+        } else {
+            lastTapKey = tag
+            lastTapTime = now
+        }
+    }
+
+    private fun doubleTap(p: Person) {
+        val id = Store.lastAction(context, p.number) ?: "call"
+        Actions.run(context, id, p)
         onDone()
     }
 
@@ -190,7 +224,7 @@ class ContactsPane(
         h.name.text = p.name
         h.name.setTextColor(if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt() else Ui.text(c))
         val sb = StringBuilder()
-        if (tab == 0 && p.date > 0) {
+        if (p.date > 0) {
             sb.append(typeIcon(p.callType)).append(' ').append(relTime(p.date))
             if (p.duration > 0) sb.append("  ").append(fmtDur(p.duration))
             if (p.name != p.number) sb.append("  ").append(p.number)
@@ -221,61 +255,81 @@ class ContactsPane(
         return m.toString() + ":" + (if (r < 10) "0" else "") + r
     }
 
+    private fun favItem(p: Person): View {
+        val item = LinearLayout(context)
+        item.orientation = LinearLayout.VERTICAL
+        item.gravity = Gravity.CENTER_HORIZONTAL
+        item.setPadding(dp(3), dp(3), dp(3), dp(3))
+        val av = AvatarView(context)
+        av.bind(p.name, p.contactId)
+        item.addView(av, LinearLayout.LayoutParams(dp(44), dp(44)))
+        val nm = TextView(context)
+        nm.text = p.name.substringBefore(' ')
+        nm.textSize = 10f
+        nm.setSingleLine()
+        nm.gravity = Gravity.CENTER
+        nm.maxWidth = dp(54)
+        nm.setTextColor(Ui.sub(context))
+        item.addView(nm)
+        item.setOnClickListener { tapped(p, "f" + p.number) }
+        item.setOnLongClickListener {
+            stripScroll.requestDisallowInterceptTouchEvent(true)
+            host.beginDrag(p, lastX, lastY)
+            true
+        }
+        item.setOnTouchListener { _, e -> track(e) }
+        return item
+    }
+
     private fun buildStrip() {
         strip.removeAllViews()
-        for (p in favs) {
-            val item = LinearLayout(context)
-            item.orientation = LinearLayout.VERTICAL
-            item.gravity = Gravity.CENTER_HORIZONTAL
-            item.setPadding(dp(4), dp(4), dp(4), dp(4))
-            val av = AvatarView(context)
-            av.bind(p.name, p.contactId)
-            item.addView(av, LinearLayout.LayoutParams(dp(50), dp(50)))
-            val nm = TextView(context)
-            nm.text = p.name.substringBefore(' ')
-            nm.textSize = 11f
-            nm.setSingleLine()
-            nm.gravity = Gravity.CENTER
-            nm.maxWidth = dp(58)
-            nm.setTextColor(Ui.sub(context))
-            item.addView(nm)
-            item.setOnClickListener { hint() }
-            item.setOnLongClickListener {
-                stripScroll.requestDisallowInterceptTouchEvent(true)
-                host.beginDrag(p, lastX, lastY)
-                true
-            }
-            item.setOnTouchListener { _, e -> track(e) }
-            strip.addView(item)
+        val r1 = LinearLayout(context)
+        val r2 = LinearLayout(context)
+        for ((i, p) in favs.withIndex()) {
+            (if (i % 2 == 0) r1 else r2).addView(favItem(p))
         }
+        strip.addView(r1)
+        strip.addView(r2)
     }
 
     private fun matches(p: Person, q: String): Boolean {
         val ql = q.trim().lowercase()
         if (ql.isEmpty()) return true
         if (p.name.lowercase().contains(ql)) return true
+        if (p.number.replace(" ", "").contains(ql.replace(" ", ""))) return true
+        val note = Store.note(context, p.number)
+        if (note != null && note.lowercase().contains(ql)) return true
         val qd = ql.filter { it.isDigit() }
-        if (qd.length == ql.length) {
-            if (p.number.filter { it.isDigit() }.contains(qd)) return true
-            if (T9.digits(p.name).contains(qd)) return true
-        }
+        if (qd.length == ql.length && T9.digits(p.name).contains(qd)) return true
         return false
+    }
+
+    private fun searchAll(q: String): List<Person> {
+        val out = ArrayList<Person>()
+        val seen = HashSet<String>()
+        for (p in recents) {
+            if (matches(p, q) && seen.add(Store.key(p.number))) out.add(p)
+        }
+        for (p in all) {
+            if (matches(p, q) && seen.add(Store.key(p.number))) out.add(p)
+        }
+        return out
     }
 
     private fun refresh() {
         val accent = Ui.accent(context)
-        for (i in 0..2) {
+        for (i in 0..1) {
             tabs[i].setTextColor(if (i == tab) accent else Ui.sub(context))
             tabs[i].setTypeface(null, if (i == tab) Typeface.BOLD else Typeface.NORMAL)
         }
-        val kp = tab == 2
-        keypad.visibility = if (kp) View.VISIBLE else View.GONE
-        listFrame.visibility = if (kp) View.GONE else View.VISIBLE
-        search.visibility = if (kp) View.GONE else View.VISIBLE
-        stripScroll.visibility = if (kp || favs.isEmpty()) View.GONE else View.VISIBLE
-        if (kp) return
-        shown = (if (tab == 0) recents else all).filter { matches(it, query) }
+        stripScroll.visibility = if (favs.isEmpty()) View.GONE else View.VISIBLE
+        val q = query.trim()
+        var data = if (q.isEmpty()) (if (tab == 0) recents else all) else searchAll(q)
+        if (reversed) data = data.reversed()
+        shown = data
         adapter.notifyDataSetChanged()
+        list.isStackFromBottom = reversed
+        if (reversed && shown.isNotEmpty()) list.setSelection(shown.size - 1)
         empty.text = if (all.isEmpty() && recents.isEmpty())
             "Nothing to show. Allow contacts and call log permission in the app."
         else "No matches"
@@ -290,7 +344,6 @@ class ContactsPane(
                 recents = r
                 all = a
                 favs = f
-                keypad.contacts = a
                 if (r.isEmpty() && a.isNotEmpty()) tab = 1
                 buildStrip()
                 refresh()

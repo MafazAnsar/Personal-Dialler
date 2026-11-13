@@ -2,6 +2,7 @@ package com.mafaz.dialer
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
 import android.app.role.RoleManager
 import android.content.Intent
 import android.content.SharedPreferences
@@ -63,6 +64,7 @@ class MainActivity : Activity() {
                 Manifest.permission.CALL_PHONE
             )
             if (Build.VERSION.SDK_INT >= 33) p.add(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= 31) p.add(Manifest.permission.BLUETOOTH_CONNECT)
             requestPermissions(p.toTypedArray(), 1)
         }
         addBtn("2. Allow display over other apps") {
@@ -84,6 +86,17 @@ class MainActivity : Activity() {
         }
         addBtn("4. Make this my Phone app") { requestRole(RoleManager.ROLE_DIALER) }
         addBtn("5. Use for caller ID and call blocking") { requestRole(RoleManager.ROLE_CALL_SCREENING) }
+        addBtn("6. Allow full-screen call alerts (screen off)") {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName"))
+                )
+            } catch (e: Exception) {
+                val i = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                i.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                startActivity(i)
+            }
+        }
 
         heading("Floating dots", 18f)
         toggle = addBtn("Start floating dots") { toggleService() }
@@ -99,6 +112,9 @@ class MainActivity : Activity() {
 
         heading("Look", 18f)
         switch("Dark theme", "dark", true)
+        switch("Square buttons (off = rounded)", "square", true)
+        seek("Keypad opacity (lower = more see-through)", "keyalpha", 100, 85)
+        switch("List starts from the bottom (newest nearest your thumb)", "revlist", false)
         text("Accent colour")
         swatches = LinearLayout(this)
         root.addView(swatches)
@@ -253,11 +269,14 @@ class MainActivity : Activity() {
         val rm = getSystemService(RoleManager::class.java)
         val phone = rm.isRoleHeld(RoleManager.ROLE_DIALER)
         val screen = rm.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+        val fsi = if (Build.VERSION.SDK_INT >= 34)
+            getSystemService(NotificationManager::class.java).canUseFullScreenIntent() else true
         status.text = mark(perms) + " Contacts, call log, phone\n" +
             mark(overlay) + " Display over other apps\n" +
             mark(battery, true) + " Battery unrestricted\n" +
             mark(phone, true) + " Default Phone app\n" +
-            mark(screen, true) + " Caller ID and blocking"
+            mark(screen, true) + " Caller ID and blocking\n" +
+            mark(fsi) + " Full-screen call alerts"
         toggle.text = if (prefs.getBoolean("enabled", false)) "Stop floating dots" else "Start floating dots"
         sideBtn.text = "Dots on the " + prefs.getString("side", "left") + " edge (tap to switch)"
     }

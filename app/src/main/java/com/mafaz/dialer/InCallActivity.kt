@@ -1,6 +1,7 @@
 package com.mafaz.dialer
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -36,11 +37,11 @@ class InCallActivity : Activity() {
     private lateinit var endB: TextView
     private lateinit var muteC: TextView
     private lateinit var padC: TextView
-    private lateinit var spkC: TextView
+    private lateinit var audioC: TextView
+    private lateinit var audioL: TextView
     private lateinit var holdC: TextView
 
     private var muted = false
-    private var speaker = false
     private var showPad = false
     private var cachedNumber: String? = null
     private var cachedPerson: Person? = null
@@ -74,7 +75,7 @@ class InCallActivity : Activity() {
         c.textSize = 24f
         c.gravity = Gravity.CENTER
         c.setTextColor(Color.WHITE)
-        c.background = Ui.circle(0xFF2B3844.toInt())
+        c.background = Ui.btn(this, 0xFF2B3844.toInt())
         c.setOnClickListener { onClick() }
         cell.addView(c, LinearLayout.LayoutParams(dp(64), dp(64)))
         val l = label(12f, 0xB3FFFFFF.toInt(), false)
@@ -91,7 +92,7 @@ class InCallActivity : Activity() {
         c.textSize = 28f
         c.gravity = Gravity.CENTER
         c.rotation = rotate
-        c.background = Ui.circle(color)
+        c.background = Ui.btn(this, color)
         c.setOnClickListener { onClick() }
         return c
     }
@@ -137,20 +138,14 @@ class InCallActivity : Activity() {
         grid.gravity = Gravity.CENTER
         val mute = fnBtn("\uD83C\uDFA4", "Mute") { muted = !muted; CallManager.service?.setMuted(muted); render() }
         val keys = fnBtn("\u2328", "Keypad") { showPad = true; render() }
-        val spk = fnBtn("\uD83D\uDD0A", "Speaker") {
-            speaker = !speaker
-            CallManager.service?.setAudioRoute(
-                if (speaker) CallAudioState.ROUTE_SPEAKER else CallAudioState.ROUTE_WIRED_OR_EARPIECE
-            )
-            render()
-        }
+        val spk = fnBtn("\uD83D\uDCF1", "Phone") { audioPicker() }
         val hold = fnBtn("\u23F8", "Hold") {
             val c = CallManager.current()
             if (c != null) { if (c.state == Call.STATE_HOLDING) c.unhold() else c.hold() }
         }
         val note = fnBtn("\uD83D\uDCDD", "Note") { withPerson { p -> Actions.note(this, p) } }
         val block = fnBtn("\uD83D\uDEAB", "Block") { withPerson { p -> Actions.block(this, p) } }
-        muteC = mute.second; padC = keys.second; spkC = spk.second; holdC = hold.second
+        muteC = mute.second; padC = keys.second; audioC = spk.second; audioL = spk.first.getChildAt(1) as TextView; holdC = hold.second
         val r1 = LinearLayout(this)
         val r2 = LinearLayout(this)
         for (x in listOf(mute, keys, spk)) r1.addView(x.first, LinearLayout.LayoutParams(0, WC, 1f))
@@ -181,6 +176,40 @@ class InCallActivity : Activity() {
 
         CallManager.addListener(listener)
         render()
+    }
+
+    private fun audioPicker() {
+        val svc = CallManager.service ?: return
+        val st = svc.callAudioState ?: return
+        val mask = st.supportedRouteMask
+        val names = ArrayList<String>()
+        val routes = ArrayList<Int>()
+        if ((mask and CallAudioState.ROUTE_EARPIECE) != 0) {
+            names.add("Phone"); routes.add(CallAudioState.ROUTE_EARPIECE)
+        }
+        if ((mask and CallAudioState.ROUTE_WIRED_HEADSET) != 0) {
+            names.add("Wired headset"); routes.add(CallAudioState.ROUTE_WIRED_HEADSET)
+        }
+        if ((mask and CallAudioState.ROUTE_BLUETOOTH) != 0) {
+            names.add("Bluetooth"); routes.add(CallAudioState.ROUTE_BLUETOOTH)
+        }
+        if ((mask and CallAudioState.ROUTE_SPEAKER) != 0) {
+            names.add("Speaker"); routes.add(CallAudioState.ROUTE_SPEAKER)
+        }
+        if (routes.size < 2) return
+        if (routes.size == 2) {
+            val next = if (st.route == routes[0]) routes[1] else routes[0]
+            svc.setAudioRoute(next)
+            render()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Audio output")
+            .setItems(names.toTypedArray()) { _, i ->
+                svc.setAudioRoute(routes[i])
+                h.postDelayed({ render() }, 300)
+            }
+            .show()
     }
 
     private fun withPerson(f: (Person) -> Unit) {
@@ -241,10 +270,16 @@ class InCallActivity : Activity() {
 
         val on = Ui.accent(this)
         val off = 0xFF2B3844.toInt()
-        muteC.background = Ui.circle(if (muted) on else off)
-        spkC.background = Ui.circle(if (speaker) on else off)
-        holdC.background = Ui.circle(if (call.state == Call.STATE_HOLDING) on else off)
-        setProx(call.state == Call.STATE_ACTIVE && !speaker)
+        muteC.background = Ui.btn(this, if (muted) on else off)
+        val route = CallManager.service?.callAudioState?.route ?: CallAudioState.ROUTE_EARPIECE
+        val loud = route == CallAudioState.ROUTE_SPEAKER
+        val bt = route == CallAudioState.ROUTE_BLUETOOTH
+        val wired = route == CallAudioState.ROUTE_WIRED_HEADSET
+        audioC.text = if (loud) "\uD83D\uDD0A" else if (bt || wired) "\uD83C\uDFA7" else "\uD83D\uDCF1"
+        audioL.text = if (loud) "Speaker" else if (bt) "Bluetooth" else if (wired) "Headset" else "Phone"
+        audioC.background = Ui.btn(this, if (loud || bt || wired) on else off)
+        holdC.background = Ui.btn(this, if (call.state == Call.STATE_HOLDING) on else off)
+        setProx(call.state == Call.STATE_ACTIVE && !loud && !bt && !wired)
     }
 
     private fun setProx(on: Boolean) {

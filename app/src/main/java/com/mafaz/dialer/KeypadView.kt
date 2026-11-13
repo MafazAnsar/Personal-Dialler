@@ -11,7 +11,8 @@ class KeypadView(
     ctx: Context,
     private val showCall: Boolean = true,
     private val onCall: (String) -> Unit = {},
-    private val onDigit: ((Char) -> Unit)? = null
+    private val onDigit: ((Char) -> Unit)? = null,
+    private val onChanged: ((String) -> Unit)? = null
 ) : LinearLayout(ctx) {
 
     var contacts: List<Person> = emptyList()
@@ -20,16 +21,17 @@ class KeypadView(
     private val sb = StringBuilder()
     private val MP = ViewGroup.LayoutParams.MATCH_PARENT
     private val WC = ViewGroup.LayoutParams.WRAP_CONTENT
+    private var ready = false
 
     val number: String get() = sb.toString()
 
     init {
         orientation = LinearLayout.VERTICAL
-        display.textSize = 28f
+        display.textSize = 26f
         display.gravity = Gravity.CENTER
         display.setSingleLine()
         display.setTextColor(Ui.text(ctx))
-        match.textSize = 14f
+        match.textSize = 13f
         match.gravity = Gravity.CENTER
         match.setSingleLine()
         match.setTextColor(Ui.accent(ctx))
@@ -53,9 +55,9 @@ class KeypadView(
         if (showCall) {
             val call = TextView(ctx)
             call.text = "\uD83D\uDCDE"
-            call.textSize = 26f
+            call.textSize = 24f
             call.gravity = Gravity.CENTER
-            call.background = Ui.round(0xFF2E9E4F.toInt(), dp(40))
+            call.background = Ui.key(ctx, 0xFF2E9E4F.toInt())
             call.setOnClickListener { onCall(sb.toString()) }
             last.addView(call, cell())
         } else {
@@ -74,6 +76,7 @@ class KeypadView(
         last.addView(back, cell())
         addView(last, LinearLayout.LayoutParams(MP, 0, 1f))
         render()
+        ready = true
     }
 
     private fun dp(v: Int) = Ui.dp(context, v)
@@ -87,10 +90,10 @@ class KeypadView(
     private fun key(d: String, l: String): TextView {
         val t = TextView(context)
         t.text = if (l.isEmpty()) d else d + "\n" + l
-        t.textSize = 20f
+        t.textSize = 19f
         t.gravity = Gravity.CENTER
         t.setTextColor(Ui.text(context))
-        t.background = Ui.round(Ui.card(context), dp(14))
+        t.background = Ui.key(context, Ui.card(context))
         t.setOnClickListener { press(d[0]) }
         if (d == "0" && showCall) t.setOnLongClickListener { press('+'); true }
         return t
@@ -110,6 +113,7 @@ class KeypadView(
 
     private fun render() {
         display.text = sb.toString()
+        if (ready) onChanged?.invoke(sb.toString())
         val qd = sb.toString().filter { it.isDigit() }
         if (qd.length < 2) {
             match.text = ""

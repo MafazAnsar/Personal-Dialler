@@ -65,4 +65,16 @@ object Actions {
         i.putExtra("name", p.name)
         launch(ctx, i)
     }
+
+    fun run(ctx: Context, id: String, p: Person) {
+        when (id) {
+            "sms" -> sms(ctx, p)
+            "wa" -> whatsapp(ctx, p)
+            "tg" -> telegram(ctx, p)
+            "mail" -> email(ctx, p)
+            "note" -> note(ctx, p)
+            "block" -> block(ctx, p)
+            else -> call(ctx, p)
+        }
+    }
 }

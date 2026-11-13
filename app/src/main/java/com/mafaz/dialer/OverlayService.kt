@@ -35,6 +35,7 @@ class OverlayService : Service() {
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
         startInForeground()
+        Toggles.init(this)
         if (Settings.canDrawOverlays(this)) showHandle() else stopSelf()
     }
 

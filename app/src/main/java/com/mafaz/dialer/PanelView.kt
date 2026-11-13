@@ -3,7 +3,7 @@ package com.mafaz.dialer
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Rect
-import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.max
 
 class PanelView(
     ctx: Context,
@@ -19,15 +20,28 @@ class PanelView(
     private val onClose: () -> Unit
 ) : FrameLayout(ctx), DragHost {
 
+    private class Act(val view: IconView, val id: String, val fn: (Person) -> Unit)
+
     private val MP = ViewGroup.LayoutParams.MATCH_PARENT
     private val WC = ViewGroup.LayoutParams.WRAP_CONTENT
-    private val actions = ArrayList<Triple<TextView, Int, (Person) -> Unit>>()
+    private val repeatable = setOf("call", "sms", "wa", "tg", "mail")
+    private val acts = ArrayList<Act>()
+    private val toggles = ArrayList<IconView>()
     private val actionsCol = LinearLayout(ctx)
-    private val pane = ContactsPane(ctx, this) { onClose() }
+    private val holder = FrameLayout(ctx)
+    private val sheet = FrameLayout(ctx)
+    private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() })
+    private val keypad = KeypadView(
+        ctx,
+        showCall = true,
+        onCall = { n -> dial(n) },
+        onChanged = { q -> pane.setQuery(q) }
+    )
+    private val sheetH = (ctx.resources.displayMetrics.heightPixels * 0.5f).toInt()
 
     private var dragPerson: Person? = null
     private var chip: TextView? = null
-    private var hover: TextView? = null
+    private var hover: IconView? = null
     private var lastX = 0f
     private var lastY = 0f
     private var closing = false
@@ -43,45 +57,132 @@ class PanelView(
         actionsCol.gravity = Gravity.CENTER_VERTICAL
         actionsCol.isClickable = true
         actionsCol.setPadding(dp(8), 0, dp(8), 0)
-        pill("\uD83D\uDCDE  Call", 0xFF2E7D32.toInt()) { p -> Actions.call(context, p) }
-        pill("\uD83D\uDCAC  SMS", 0xFF1976D2.toInt()) { p -> Actions.sms(context, p) }
-        pill("WhatsApp", 0xFF1FA855.toInt()) { p -> Actions.whatsapp(context, p) }
-        pill("\u2708  Telegram", 0xFF229ED9.toInt()) { p -> Actions.telegram(context, p) }
-        pill("\u2709  Email", 0xFFEF6C00.toInt()) { p -> Actions.email(context, p) }
-        pill("\uD83D\uDCDD  Note", 0xFF8E24AA.toInt()) { p -> Actions.note(context, p) }
-        pill("\uD83D\uDEAB  Block", 0xFFC62828.toInt()) { p -> Actions.block(context, p) }
+        icon("call", "call") { p -> Actions.call(context, p) }
+        icon("sms", "sms") { p -> Actions.sms(context, p) }
+        icon("wa", "wa") { p -> Actions.whatsapp(context, p) }
+        icon("tg", "tg") { p -> Actions.telegram(context, p) }
+        icon("mail", "mail") { p -> Actions.email(context, p) }
+        icon("note", "note") { p -> Actions.note(context, p) }
+        icon("block", "block") { p -> Actions.block(context, p) }
+        actionsCol.addView(View(ctx), LinearLayout.LayoutParams(MP, dp(10)))
+        toggle("torch") {
+            Toggles.torch(context)
+            postDelayed({ refreshToggles() }, 250)
+        }
+        toggle("bt") {
+            Toggles.bluetooth(context)
+            onClose()
+        }
+        toggle("wifi") {
+            Toggles.wifi(context)
+            onClose()
+        }
+        toggle("sound") {
+            Toggles.toggleSound(context)
+            refreshToggles()
+        }
+        refreshToggles()
+
+        holder.addView(pane, FrameLayout.LayoutParams(MP, MP))
+        buildSheet()
+        holder.addView(sheet, FrameLayout.LayoutParams(MP, sheetH, Gravity.BOTTOM))
 
         val row = LinearLayout(ctx)
         row.orientation = LinearLayout.HORIZONTAL
         row.setPadding(dp(8), dp(40), dp(8), dp(24))
-        val cw = 1.2f + 0.1f * Ui.cfg(ctx).getInt("panelw", 3)
-        val cLp = LinearLayout.LayoutParams(0, MP, cw)
-        val gLp = LinearLayout.LayoutParams(0, MP, 0.2f)
-        val aLp = LinearLayout.LayoutParams(0, MP, 1.0f)
+        val frac = 0.55f + 0.04f * Ui.cfg(ctx).getInt("panelw", 3)
+        val hLp = LinearLayout.LayoutParams(0, MP, frac)
+        val gLp = LinearLayout.LayoutParams(0, MP, max(0.05f, 1f - frac))
+        val aLp = LinearLayout.LayoutParams(dp(66), MP)
         val gap = View(ctx)
         if (leftSide) {
-            row.addView(pane, cLp); row.addView(gap, gLp); row.addView(actionsCol, aLp)
+            row.addView(holder, hLp); row.addView(gap, gLp); row.addView(actionsCol, aLp)
         } else {
-            row.addView(actionsCol, aLp); row.addView(gap, gLp); row.addView(pane, cLp)
+            row.addView(actionsCol, aLp); row.addView(gap, gLp); row.addView(holder, hLp)
         }
         addView(row, FrameLayout.LayoutParams(MP, MP))
     }
 
     private fun dp(v: Int) = Ui.dp(context, v)
 
-    private fun pill(label: String, color: Int, fn: (Person) -> Unit) {
-        val tv = TextView(context)
-        tv.text = label
-        tv.textSize = 16f
-        tv.setTextColor(Color.WHITE)
-        tv.gravity = Gravity.CENTER
-        tv.setTypeface(null, Typeface.BOLD)
-        tv.background = Ui.round(color, dp(28))
-        tv.alpha = 0.88f
-        val lp = LinearLayout.LayoutParams(MP, dp(52))
+    private fun buildSheet() {
+        val bgd = GradientDrawable()
+        bgd.setColor(Ui.withAlpha(Ui.solid(context), Ui.keyAlpha(context)))
+        val r = if (Ui.square(context)) 0f else dp(20).toFloat()
+        bgd.cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+        sheet.background = bgd
+        sheet.isClickable = true
+        sheet.setPadding(dp(8), dp(2), dp(8), dp(8))
+        sheet.visibility = View.GONE
+        val col = LinearLayout(context)
+        col.orientation = LinearLayout.VERTICAL
+        val handle = TextView(context)
+        handle.text = "\u25BE"
+        handle.textSize = 22f
+        handle.gravity = Gravity.CENTER
+        handle.setTextColor(Ui.sub(context))
+        handle.setOnClickListener { toggleSheet() }
+        col.addView(handle, LinearLayout.LayoutParams(MP, dp(28)))
+        col.addView(keypad, LinearLayout.LayoutParams(MP, 0, 1f))
+        sheet.addView(col, FrameLayout.LayoutParams(MP, MP))
+    }
+
+    private fun toggleSheet() {
+        val lp = pane.layoutParams as FrameLayout.LayoutParams
+        if (sheet.visibility == View.VISIBLE) {
+            sheet.animate().translationY(sheetH.toFloat()).setDuration(180)
+                .withEndAction { sheet.visibility = View.GONE }.start()
+            lp.bottomMargin = 0
+            keypad.setNumber("")
+        } else {
+            sheet.visibility = View.VISIBLE
+            sheet.translationY = sheetH.toFloat()
+            sheet.animate().translationY(0f).setDuration(200).start()
+            lp.bottomMargin = sheetH + dp(6)
+        }
+        pane.layoutParams = lp
+    }
+
+    private fun dial(n: String) {
+        if (n.isBlank()) return
+        Actions.call(context, Person(n, n))
+        onClose()
+    }
+
+    private fun icon(kind: String, id: String, fn: (Person) -> Unit) {
+        val v = IconView(context, kind)
+        v.alpha = 0.92f
+        val lp = LinearLayout.LayoutParams(dp(46), dp(46))
         lp.setMargins(0, dp(5), 0, dp(5))
-        actionsCol.addView(tv, lp)
-        actions.add(Triple(tv, color, fn))
+        lp.gravity = Gravity.CENTER_HORIZONTAL
+        actionsCol.addView(v, lp)
+        acts.add(Act(v, id, fn))
+    }
+
+    private fun toggle(kind: String, click: () -> Unit) {
+        val v = IconView(context, kind)
+        v.setOnClickListener { click() }
+        val lp = LinearLayout.LayoutParams(dp(34), dp(34))
+        lp.setMargins(0, dp(4), 0, dp(4))
+        lp.gravity = Gravity.CENTER_HORIZONTAL
+        actionsCol.addView(v, lp)
+        toggles.add(v)
+    }
+
+    private fun refreshToggles() {
+        for (t in toggles) {
+            when (t.kind) {
+                "torch" -> t.on = Toggles.torchOn
+                "bt" -> t.on = Toggles.btOn(context)
+                "wifi" -> t.on = Toggles.wifiOn(context)
+                else -> {
+                    val normal = Toggles.soundNormal(context)
+                    t.kind = if (normal) "sound" else "vib"
+                    t.on = normal
+                    t.invalidate()
+                }
+            }
+        }
     }
 
     override fun onAttachedToWindow() {
@@ -89,8 +190,8 @@ class PanelView(
         alpha = 0f
         animate().alpha(1f).setDuration(180).start()
         val w = dp(320).toFloat()
-        pane.translationX = if (leftSide) -w else w
-        pane.animate().translationX(0f).setDuration(240).start()
+        holder.translationX = if (leftSide) -w else w
+        holder.animate().translationX(0f).setDuration(240).start()
         actionsCol.translationX = if (leftSide) w else -w
         actionsCol.animate().translationX(0f).setDuration(240).setStartDelay(40).start()
     }
@@ -110,7 +211,7 @@ class PanelView(
         c.setTextColor(Color.BLACK)
         c.textSize = 16f
         c.setPadding(dp(16), dp(10), dp(16), dp(10))
-        c.background = Ui.round(Ui.accent(context), dp(24))
+        c.background = Ui.round(Ui.accent(context), dp(if (Ui.square(context)) 6 else 24))
         c.elevation = dp(8).toFloat()
         c.scaleX = 0.6f
         c.scaleY = 0.6f
@@ -133,18 +234,24 @@ class PanelView(
         getLocationOnScreen(loc)
         c.x = lastX - loc[0] - c.width / 2f
         c.y = lastY - loc[1] - c.height - dp(24)
-        var over: TextView? = null
+        var over: IconView? = null
         val r = Rect()
         val l = IntArray(2)
-        for (a in actions) {
-            val tv = a.first
-            tv.getLocationOnScreen(l)
-            r.set(l[0], l[1], l[0] + tv.width, l[1] + tv.height)
-            if (r.contains(lastX.toInt(), lastY.toInt())) over = tv
+        for (a in acts) {
+            val v = a.view
+            v.getLocationOnScreen(l)
+            r.set(l[0], l[1], l[0] + v.width, l[1] + v.height)
+            if (r.contains(lastX.toInt(), lastY.toInt())) over = v
         }
         if (over !== hover) {
-            hover?.animate()?.scaleX(1f)?.scaleY(1f)?.alpha(0.88f)?.setDuration(100)?.start()
-            over?.animate()?.scaleX(1.1f)?.scaleY(1.1f)?.alpha(1f)?.setDuration(100)?.start()
+            hover?.let {
+                it.hot = false
+                it.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+            }
+            over?.let {
+                it.hot = true
+                it.animate().scaleX(1.18f).scaleY(1.18f).setDuration(100).start()
+            }
             hover = over
         }
     }
@@ -160,12 +267,14 @@ class PanelView(
             c.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(140)
                 .withEndAction { removeView(c) }.start()
         }
-        for (a in actions) {
-            a.first.animate().scaleX(1f).scaleY(1f).alpha(0.88f).setDuration(100).start()
+        for (a in acts) {
+            a.view.hot = false
+            a.view.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
         }
         if (drop && p != null && target != null) {
-            val fn = actions.first { it.first === target }.third
-            fn(p)
+            val a = acts.first { it.view === target }
+            a.fn(p)
+            if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
             onClose()
         }
     }

@@ -1,11 +1,14 @@
 package com.mafaz.dialer
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.PowerManager
+import android.telecom.CallAudioState
 import android.telecom.Call
 import android.telecom.InCallService
 
@@ -29,7 +32,17 @@ class DialerInCallService : InCallService() {
         CallManager.calls.add(call)
         CallManager.notifyChanged()
         updateNotification()
-        if (call.state != Call.STATE_RINGING) openUi()
+        if (call.state != Call.STATE_RINGING || screenOffOrLocked()) openUi()
+    }
+
+    override fun onCallAudioStateChanged(audioState: CallAudioState?) {
+        CallManager.notifyChanged()
+    }
+
+    private fun screenOffOrLocked(): Boolean {
+        val km = getSystemService(KeyguardManager::class.java)
+        val pm = getSystemService(PowerManager::class.java)
+        return km.isKeyguardLocked || !pm.isInteractive
     }
 
     override fun onCallRemoved(call: Call) {

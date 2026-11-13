@@ -35,4 +35,16 @@ object Store {
         if (on) e.putBoolean(k, true) else e.remove(k)
         e.apply()
     }
+
+    fun lastAction(c: Context, number: String): String? {
+        val k = key(number)
+        if (k.isEmpty()) return null
+        return sp(c, "lastact").getString(k, null)
+    }
+
+    fun setLastAction(c: Context, number: String, id: String) {
+        val k = key(number)
+        if (k.isEmpty()) return
+        sp(c, "lastact").edit().putString(k, id).apply()
+    }
 }

@@ -27,6 +27,12 @@ object Ui {
     fun sub(c: Context): Int = if (dark(c)) 0xB3FFFFFF.toInt() else 0x99000000.toInt()
     fun scrim(c: Context): Int = if (dark(c)) 0xB3000000.toInt() else 0x66000000.toInt()
 
+    fun square(c: Context): Boolean = cfg(c).getBoolean("square", true)
+
+    fun keyAlpha(c: Context): Int = cfg(c).getInt("keyalpha", 85).coerceIn(20, 100) * 255 / 100
+
+    fun withAlpha(color: Int, a: Int): Int = (color and 0x00FFFFFF) or (a shl 24)
+
     fun round(color: Int, radiusPx: Int): GradientDrawable {
         val g = GradientDrawable()
         g.setColor(color)
@@ -40,4 +46,10 @@ object Ui {
         g.setColor(color)
         return g
     }
+
+    fun key(c: Context, color: Int): GradientDrawable =
+        round(withAlpha(color, keyAlpha(c)), dp(c, if (square(c)) 3 else 18))
+
+    fun btn(c: Context, color: Int): GradientDrawable =
+        if (square(c)) round(color, dp(c, 6)) else circle(color)
 }
