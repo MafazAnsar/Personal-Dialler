@@ -43,6 +43,7 @@ class ContactsPane(
     private val WC = ViewGroup.LayoutParams.WRAP_CONTENT
     private val ui = Handler(Looper.getMainLooper())
     private var recents: List<Person> = emptyList()
+    private var frequent: List<Person> = emptyList()
     private var all: List<Person> = emptyList()
     private var favs: List<Person> = emptyList()
     private var shown: List<Person> = emptyList()
@@ -57,7 +58,7 @@ class ContactsPane(
     private val search = EditText(ctx)
     private val strip = LinearLayout(ctx)
     private val stripScroll = HorizontalScrollView(ctx)
-    private val tabs = arrayOf(TextView(ctx), TextView(ctx))
+    private val tabs = arrayOf(TextView(ctx), TextView(ctx), TextView(ctx))
     private val list = ListView(ctx)
     private val empty = TextView(ctx)
     private val listFrame = FrameLayout(ctx)
@@ -115,8 +116,8 @@ class ContactsPane(
         addView(stripScroll, LinearLayout.LayoutParams(MP, WC))
 
         val tabRow = LinearLayout(ctx)
-        val labels = arrayOf("Recent", "Contacts")
-        for (i in 0..1) {
+        val labels = arrayOf("Frequent", "Recent", "Contacts")
+        for (i in 0..2) {
             tabs[i].text = labels[i]
             tabs[i].gravity = Gravity.CENTER
             tabs[i].textSize = 14f
@@ -224,7 +225,10 @@ class ContactsPane(
         h.name.text = p.name
         h.name.setTextColor(if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt() else Ui.text(c))
         val sb = StringBuilder()
-        if (p.date > 0) {
+        if (p.count > 0) {
+            sb.append("\u2605 ").append(p.count).append(" calls  ")
+            sb.append(typeIcon(p.callType)).append(' ').append(relTime(p.date))
+        } else if (p.date > 0) {
             sb.append(typeIcon(p.callType)).append(' ').append(relTime(p.date))
             if (p.duration > 0) sb.append("  ").append(fmtDur(p.duration))
             if (p.name != p.number) sb.append("  ").append(p.number)
@@ -318,13 +322,19 @@ class ContactsPane(
 
     private fun refresh() {
         val accent = Ui.accent(context)
-        for (i in 0..1) {
+        for (i in 0..2) {
             tabs[i].setTextColor(if (i == tab) accent else Ui.sub(context))
             tabs[i].setTypeface(null, if (i == tab) Typeface.BOLD else Typeface.NORMAL)
         }
         stripScroll.visibility = if (favs.isEmpty()) View.GONE else View.VISIBLE
         val q = query.trim()
-        var data = if (q.isEmpty()) (if (tab == 0) recents else all) else searchAll(q)
+        var data = if (q.isEmpty()) {
+            when (tab) {
+                0 -> frequent
+                1 -> recents
+                else -> all
+            }
+        } else searchAll(q)
         if (reversed) data = data.reversed()
         shown = data
         adapter.notifyDataSetChanged()
@@ -335,6 +345,48 @@ class ContactsPane(
         else "No matches"
     }
 
+    private fun buildFrequent(src: List<Person>): List<Person> {
+        val counts = HashMap<String, Int>()
+        val first = LinkedHashMap<String, Person>()
+        for (p in src) {
+            val k = Store.key(p.number).ifEmpty { p.number }
+            counts[k] = (counts[k] ?: 0) + 1
+            if (!first.containsKey(k)) first[k] = p
+        }
+        val top = first.entries.sortedByDescending { counts[it.key] ?: 0 }.take(4)
+        val topKeys = HashSet<String>()
+        val out = ArrayList<Person>()
+        for (e in top) {
+            topKeys.add(e.key)
+            val n = counts[e.key] ?: 0
+            out.add(if (n >= 2) e.value.copy(count = n) else e.value)
+        }
+        for ((k, p) in first) {
+            if (!topKeys.contains(k)) out.add(p)
+        }
+        return out
+    }
+
+    fun switchTab(dir: Int) {
+        val n = tab + dir
+        if (n < 0 || n > 2) return
+        tab = n
+        refresh()
+        listFrame.translationX = (dir * dp(48)).toFloat()
+        listFrame.alpha = 0.3f
+        listFrame.animate().translationX(0f).alpha(1f).setDuration(160).start()
+    }
+
+    fun stripCanScroll(x: Float, y: Float, dx: Float): Boolean {
+        if (stripScroll.visibility != View.VISIBLE) return false
+        val l = IntArray(2)
+        stripScroll.getLocationOnScreen(l)
+        val inside = x >= l[0] && x <= l[0] + stripScroll.width &&
+            y >= l[1] && y <= l[1] + stripScroll.height
+        if (!inside) return false
+        return stripScroll.canScrollHorizontally(if (dx < 0) 1 else -1)
+    }
+
     private fun load() {
         thread {
             val r = Repo.recents(context)
@@ -342,9 +394,10 @@ class ContactsPane(
             val f = Repo.favourites(context)
             ui.post {
                 recents = r
+                frequent = buildFrequent(r)
                 all = a
                 favs = f
-                if (r.isEmpty() && a.isNotEmpty()) tab = 1
+                if (r.isEmpty() && a.isNotEmpty()) tab = 2
                 buildStrip()
                 refresh()
             }

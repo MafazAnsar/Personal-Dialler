@@ -7,11 +7,13 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.abs
 import kotlin.math.max
 
 class PanelView(
@@ -277,6 +279,60 @@ class PanelView(
             if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
             onClose()
         }
+    }
+
+    private var downX = 0f
+    private var downY = 0f
+    private var swipeDone = false
+
+    private fun inView(v: View, x: Float, y: Float): Boolean {
+        val l = IntArray(2)
+        v.getLocationOnScreen(l)
+        return x >= l[0] && x <= l[0] + v.width && y >= l[1] && y <= l[1] + v.height
+    }
+
+    private fun swipeCheck(e: MotionEvent): Boolean {
+        if (swipeDone || dragging) return false
+        if (sheet.visibility == View.VISIBLE && inView(sheet, downX, downY)) return false
+        val dx = e.rawX - downX
+        val dy = e.rawY - downY
+        if (abs(dx) < dp(40) || abs(dx) < abs(dy) * 2f) return false
+        if (pane.stripCanScroll(downX, downY, dx)) return false
+        swipeDone = true
+        pane.switchTab(if (dx < 0) 1 else -1)
+        return true
+    }
+
+    override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = e.rawX
+                downY = e.rawY
+                swipeDone = false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (swipeCheck(e)) return true
+            }
+        }
+        return false
+    }
+
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = e.rawX
+                downY = e.rawY
+                swipeDone = false
+            }
+            MotionEvent.ACTION_MOVE -> swipeCheck(e)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                val was = swipeDone
+                swipeDone = false
+                if (was) return true
+            }
+        }
+        if (swipeDone) return true
+        return super.onTouchEvent(e)
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

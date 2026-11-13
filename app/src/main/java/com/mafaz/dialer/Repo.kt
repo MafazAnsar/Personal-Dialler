@@ -17,7 +17,8 @@ data class Person(
     val contactId: Long? = null,
     val callType: Int = 0,
     val date: Long = 0L,
-    val duration: Long = 0L
+    val duration: Long = 0L,
+    val count: Int = 0
 )
 
 object T9 {
@@ -86,7 +87,7 @@ object Repo {
         return out
     }
 
-    fun recents(ctx: Context, limit: Int = 100): List<Person> {
+    fun recents(ctx: Context, limit: Int = 250): List<Person> {
         if (!has(ctx, Manifest.permission.READ_CALL_LOG)) return emptyList()
         val out = ArrayList<Person>()
         val ids = HashMap<String, Long?>()

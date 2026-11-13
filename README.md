@@ -1,4 +1,4 @@
-# Personal Dialler v0.3
+# Personal Dialler v0.4
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -7,6 +7,7 @@ Push to GitHub (branch main). Actions > "Build APK" > download the artifact, ins
 The first build step checks that no Kotlin file was cut off during upload.
 
 ## Panel
+- Opens on Frequent: your top 4 most-called numbers from the last 250 calls, then recents, no repeats. Swipe left or right anywhere on the panel to move between Frequent, Recent and Contacts
 - Drag a contact, recent or favourite onto an icon: call, SMS, WhatsApp, Telegram, email, note, block
 - Double-tap a contact or recent to repeat the last action used with them (call if none)
 - Search covers contacts and recents together
