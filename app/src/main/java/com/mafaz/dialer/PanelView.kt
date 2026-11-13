@@ -57,6 +57,8 @@ class PanelView(
     private var downY = 0f
     private var swipeDone = false
     private var kb = 0
+    private var startX = 0f
+    private var startY = 0f
     private var rowRef: LinearLayout? = null
 
     override val dragging: Boolean get() = dragPerson != null
@@ -307,6 +309,8 @@ class PanelView(
         dragPerson = p
         lastX = x
         lastY = y
+        startX = x
+        startY = y
         val c = TextView(context)
         c.text = p.name
         c.setTextColor(Color.BLACK)
@@ -371,6 +375,14 @@ class PanelView(
         for (a in acts) {
             a.view.hot = false
             a.view.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+        }
+        if (drop && p != null && target == null) {
+            val dx = lastX - startX
+            val dy = lastY - startY
+            if (dx * dx + dy * dy < dp(14) * dp(14)) {
+                Actions.menu(context, p)
+                onClose()
+            }
         }
         if (drop && p != null && target != null) {
             val a = acts.first { it.view === target }

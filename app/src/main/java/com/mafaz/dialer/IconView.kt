@@ -114,6 +114,8 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
         "viber" -> 0xFF7360F2.toInt()
         "history" -> 0xFF546E7A.toInt()
         "remind" -> 0xFFEF6C00.toInt()
+        "addcontact" -> 0xFF00897B.toInt()
+        "fav" -> 0xFFFFB300.toInt()
         else -> 0xFF607D8B.toInt()
     }
 
@@ -178,6 +180,28 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
 
     private fun drawGlyph(c: Canvas) {
         when (kind) {
+            "addcontact" -> {
+                fill()
+                c.drawCircle(42f, 36f, 13f, fg)
+                rect.set(18f, 56f, 66f, 80f)
+                c.drawRoundRect(rect, 12f, 12f, fg)
+                stroke(6f)
+                c.drawLine(76f, 28f, 76f, 52f, fg)
+                c.drawLine(64f, 40f, 88f, 40f, fg)
+            }
+            "fav" -> {
+                fill()
+                path.reset()
+                for (k in 0 until 10) {
+                    val r = if (k % 2 == 0) 31.0 else 13.0
+                    val a = Math.toRadians(-90.0 + k * 36.0)
+                    val x = (50.0 + r * Math.cos(a)).toFloat()
+                    val y = (53.0 + r * Math.sin(a)).toFloat()
+                    if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                path.close()
+                c.drawPath(path, fg)
+            }
             "call" -> drawCall(c, 0f)
             "hang" -> drawCall(c, 135f)
             "mic", "micoff" -> {

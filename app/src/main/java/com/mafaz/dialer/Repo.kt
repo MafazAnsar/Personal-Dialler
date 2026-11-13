@@ -71,7 +71,7 @@ object Repo {
         return out
     }
 
-    fun favourites(ctx: Context, limit: Int = 24): List<Person> {
+    private fun systemFavourites(ctx: Context, limit: Int): List<Person> {
         if (!has(ctx, Manifest.permission.READ_CONTACTS)) return emptyList()
         val out = ArrayList<Person>()
         val seen = HashSet<Long>()
@@ -83,6 +83,16 @@ object Repo {
                 val num = c.getString(2) ?: continue
                 if (seen.add(id)) out.add(Person(name, num, id))
             }
+        }
+        return out
+    }
+
+    fun favourites(ctx: Context, limit: Int = 24): List<Person> {
+        val out = ArrayList<Person>(systemFavourites(ctx, limit))
+        val keys = HashSet<String>()
+        for (p in out) keys.add(Store.key(p.number))
+        for (a in Favs.app(ctx)) {
+            if (keys.add(Store.key(a.number))) out.add(a)
         }
         return out
     }

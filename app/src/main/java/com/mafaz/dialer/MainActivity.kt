@@ -66,7 +66,8 @@ class MainActivity : Activity() {
                 Manifest.permission.READ_CALL_LOG,
                 Manifest.permission.CALL_PHONE,
                 Manifest.permission.READ_PHONE_STATE,
-                Manifest.permission.SEND_SMS
+                Manifest.permission.SEND_SMS,
+                Manifest.permission.WRITE_CONTACTS
             )
             if (Build.VERSION.SDK_INT >= 33) p.add(Manifest.permission.POST_NOTIFICATIONS)
             if (Build.VERSION.SDK_INT >= 31) p.add(Manifest.permission.BLUETOOTH_CONNECT)

@@ -3,16 +3,20 @@ package com.mafaz.dialer
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.CallLog
 import android.text.format.DateFormat
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.Toast
 import java.util.Calendar
 
 class QuickActivity : Activity() {
     private val dialogTheme = android.R.style.Theme_Material_Light_Dialog_Alert
+    private var chained = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,15 +28,65 @@ class QuickActivity : Activity() {
             finish()
             return
         }
-        val dlg = when (mode) {
-            "block" -> blockDialog(number, name)
-            "sim" -> simDialog(number, name)
-            "history" -> historyDialog(number, name)
-            "remind" -> remindDialog(number, name)
-            else -> noteDialog(number, name)
-        }
-        dlg.setOnDismissListener { finish() }
+        val dlg = dialogFor(mode, number, name)
+        dlg.setOnDismissListener { if (!chained) finish() }
         dlg.show()
+    }
+
+    private fun dialogFor(mode: String, number: String, name: String): AlertDialog = when (mode) {
+        "block" -> blockDialog(number, name)
+        "sim" -> simDialog(number, name)
+        "history" -> historyDialog(number, name)
+        "remind" -> remindDialog(number, name)
+        "menu" -> menuDialog(number, name)
+        else -> noteDialog(number, name)
+    }
+
+    private fun menuDialog(number: String, name: String): AlertDialog {
+        val p = Person(name, number)
+        val inContacts = Repo.lookup(this, number) != null
+        val labels = ArrayList<String>()
+        val ids = ArrayList<String>()
+        if (!inContacts) {
+            labels.add("Save to contacts")
+            ids.add("addcontact")
+        }
+        labels.add(if (Favs.isFav(this, p)) "Remove from favourites" else "Add to favourites")
+        ids.add("fav")
+        labels.add("Call history")
+        ids.add("history")
+        labels.add("Note")
+        ids.add("note")
+        labels.add("Remind me to call back")
+        ids.add("remind")
+        labels.add(if (Store.isBlocked(this, number)) "Unblock" else "Block")
+        ids.add("block")
+        labels.add("Copy number")
+        ids.add("copy")
+        return AlertDialog.Builder(this, dialogTheme)
+            .setTitle(name)
+            .setItems(labels.toTypedArray()) { _, i -> pick(ids[i], number, name) }
+            .setNegativeButton("Cancel", null)
+            .create()
+    }
+
+    private fun pick(id: String, number: String, name: String) {
+        val p = Person(name, number)
+        when (id) {
+            "addcontact" -> Actions.addContact(this, p)
+            "fav" -> Toast.makeText(this, Favs.toggle(this, p), Toast.LENGTH_SHORT).show()
+            "copy" -> {
+                val cm = getSystemService(ClipboardManager::class.java)
+                cm.setPrimaryClip(ClipData.newPlainText("number", number))
+                Toast.makeText(this, "Number copied", Toast.LENGTH_SHORT).show()
+            }
+            else -> {
+                chained = true
+                val d = dialogFor(id, number, name)
+                d.setOnDismissListener { finish() }
+                d.show()
+            }
+        }
     }
 
     private fun noteDialog(number: String, name: String): AlertDialog {

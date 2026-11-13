@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.ContactsContract
 import android.widget.Toast
 
 object Actions {
@@ -141,6 +142,20 @@ object Actions {
 
     fun openSettings(ctx: Context) = launch(ctx, Intent(ctx, MainActivity::class.java))
 
+    fun addContact(ctx: Context, p: Person) {
+        val i = Intent(Intent.ACTION_INSERT_OR_EDIT)
+        i.type = ContactsContract.Contacts.CONTENT_ITEM_TYPE
+        i.putExtra(ContactsContract.Intents.Insert.PHONE, p.number)
+        if (p.name != p.number) i.putExtra(ContactsContract.Intents.Insert.NAME, p.name)
+        launch(ctx, i)
+    }
+
+    fun favourite(ctx: Context, p: Person) {
+        Toast.makeText(ctx, Favs.toggle(ctx, p), Toast.LENGTH_SHORT).show()
+    }
+
+    fun menu(ctx: Context, p: Person) = quick(ctx, "menu", p)
+
     fun note(ctx: Context, p: Person) = quick(ctx, "note", p)
 
     fun block(ctx: Context, p: Person) = quick(ctx, "block", p)
@@ -157,6 +172,8 @@ object Actions {
             "signal" -> signal(ctx, p)
             "viber" -> viber(ctx, p)
             "mail" -> email(ctx, p)
+            "addcontact" -> addContact(ctx, p)
+            "fav" -> favourite(ctx, p)
             "history" -> history(ctx, p)
             "remind" -> remind(ctx, p)
             "note" -> note(ctx, p)

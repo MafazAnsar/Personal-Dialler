@@ -1,4 +1,4 @@
-# Personal Dialler v0.7
+# Personal Dialler v0.8
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -12,6 +12,7 @@ The app is signed with the key in app/debug.keystore, so later updates install o
 - Opens on Frequent (top 4 of the last 250 calls, merged per contact), then Recent and Contacts. Swipe left/right anywhere to switch.
 - Drag a contact onto an icon. Icons and their order are chosen in the app: call, SMS, WhatsApp, Telegram, Signal, Viber, email, call history, remind me, note, block.
 - Tap a contact to select it, then tap an icon to use it. With nothing selected, tapping an icon opens that app. Dragging still works.
+- Long-press a contact or number and let go without dragging for a menu: save to contacts, add/remove favourite, call history, note, remind, block, copy. The Save to contacts and Favourite icons do the same by drag or tap.
 - Double-tap repeats the last action used with that person.
 - Search covers contacts and recents. Keypad button opens a keypad on the lower half. Sort button flips the list.
 - Toggles: flashlight, Bluetooth, Wi-Fi, mobile data panel, Do Not Disturb, sound/vibrate.
