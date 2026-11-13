@@ -37,7 +37,7 @@ class ContactsPane(
     private val onKeypad: () -> Unit
 ) : LinearLayout(ctx) {
 
-    private class Holder(val av: AvatarView, val name: TextView, val sub: TextView)
+    private class Holder(val row: View, val av: AvatarView, val name: TextView, val sub: TextView)
 
     private val MP = ViewGroup.LayoutParams.MATCH_PARENT
     private val WC = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -54,6 +54,7 @@ class ContactsPane(
     private var lastY = 0f
     private var lastTapKey = ""
     private var lastTapTime = 0L
+    private var selected: Person? = null
 
     private val search = EditText(ctx)
     private val strip = LinearLayout(ctx)
@@ -157,6 +158,19 @@ class ContactsPane(
 
     private fun dp(v: Int) = Ui.dp(context, v)
 
+    fun selectedPerson(): Person? = selected
+
+    private fun isSelected(p: Person): Boolean {
+        val s = selected ?: return false
+        return Store.key(s.number) == Store.key(p.number)
+    }
+
+    private fun select(p: Person) {
+        selected = p
+        adapter.notifyDataSetChanged()
+        buildStrip()
+    }
+
     fun setQuery(q: String) {
         if (search.text.toString() != q) search.setText(q)
     }
@@ -175,6 +189,7 @@ class ContactsPane(
         } else {
             lastTapKey = tag
             lastTapTime = now
+            select(p)
         }
     }
 
@@ -217,7 +232,7 @@ class ContactsPane(
         val lp = LinearLayout.LayoutParams(0, WC, 1f)
         lp.leftMargin = dp(12)
         row.addView(col, lp)
-        row.tag = Holder(av, name, sub)
+        row.tag = Holder(row, av, name, sub)
         return row
     }
 
@@ -231,6 +246,7 @@ class ContactsPane(
         }
         h.name.textSize = 16f * fs
         h.sub.textSize = 12f * fs
+        h.row.setBackgroundColor(if (isSelected(p)) Ui.withAlpha(Ui.accent(c), 0x44) else 0)
         h.name.text = p.name
         h.name.setTextColor(if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt() else Ui.text(c))
         val sb = StringBuilder()
@@ -273,6 +289,7 @@ class ContactsPane(
         item.orientation = LinearLayout.VERTICAL
         item.gravity = Gravity.CENTER_HORIZONTAL
         item.setPadding(dp(3), dp(3), dp(3), dp(3))
+        if (isSelected(p)) item.background = Ui.round(Ui.withAlpha(Ui.accent(context), 0x44), dp(10))
         val av = AvatarView(context)
         av.bind(p.name, p.contactId)
         item.addView(av, LinearLayout.LayoutParams(dp(44), dp(44)))

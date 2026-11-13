@@ -58,17 +58,77 @@ object Actions {
     fun sms(ctx: Context, p: Person) =
         launch(ctx, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(p.number))))
 
+    private val WA = arrayOf("com.whatsapp", "com.whatsapp.w4b")
+    private val TG = arrayOf("org.telegram.messenger", "org.telegram.messenger.web", "org.telegram.plus")
+    private val SIG = arrayOf("org.thoughtcrime.securesms")
+    private val VIB = arrayOf("com.viber.voip")
+
+    private fun installed(ctx: Context, pkg: String): Boolean = try {
+        ctx.packageManager.getPackageInfo(pkg, 0)
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    // Opens a link inside a specific installed app; falls back to any app that can handle it.
+    private fun viewIn(ctx: Context, uri: String, pkgs: Array<String>, appName: String) {
+        for (pkg in pkgs) {
+            if (installed(ctx, pkg)) {
+                val i = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                i.setPackage(pkg)
+                launch(ctx, i)
+                return
+            }
+        }
+        val any = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+        any.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            ctx.startActivity(any)
+        } catch (e: Exception) {
+            Toast.makeText(ctx, appName + " is not installed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun whatsapp(ctx: Context, p: Person) =
-        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/" + intl(p.number, cc(ctx)))))
+        viewIn(ctx, "https://wa.me/" + intl(p.number, cc(ctx)), WA, "WhatsApp")
 
     fun telegram(ctx: Context, p: Person) =
-        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("tg://resolve?phone=" + intl(p.number, cc(ctx)))))
+        viewIn(ctx, "tg://resolve?phone=" + intl(p.number, cc(ctx)), TG, "Telegram")
 
     fun signal(ctx: Context, p: Person) =
-        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("https://signal.me/#p/+" + intl(p.number, cc(ctx)))))
+        viewIn(ctx, "https://signal.me/#p/+" + intl(p.number, cc(ctx)), SIG, "Signal")
 
     fun viber(ctx: Context, p: Person) =
-        launch(ctx, Intent(Intent.ACTION_VIEW, Uri.parse("viber://chat?number=" + Uri.encode("+" + intl(p.number, cc(ctx))))))
+        viewIn(ctx, "viber://chat?number=" + Uri.encode("+" + intl(p.number, cc(ctx))), VIB, "Viber")
+
+    private fun openPkg(ctx: Context, pkgs: Array<String>, appName: String) {
+        for (pkg in pkgs) {
+            val i = ctx.packageManager.getLaunchIntentForPackage(pkg)
+            if (i != null) {
+                launch(ctx, i)
+                return
+            }
+        }
+        Toast.makeText(ctx, appName + " is not installed", Toast.LENGTH_SHORT).show()
+    }
+
+    // Used when an icon is tapped with no contact selected: just open the app itself.
+    fun openApp(ctx: Context, id: String): Boolean {
+        when (id) {
+            "call" -> launch(ctx, Intent(ctx, DialActivity::class.java))
+            "sms" -> launch(ctx, Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING))
+            "mail" -> launch(ctx, Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_EMAIL))
+            "wa" -> openPkg(ctx, WA, "WhatsApp")
+            "tg" -> openPkg(ctx, TG, "Telegram")
+            "signal" -> openPkg(ctx, SIG, "Signal")
+            "viber" -> openPkg(ctx, VIB, "Viber")
+            else -> {
+                Toast.makeText(ctx, "Tap a contact first, then tap this icon", Toast.LENGTH_SHORT).show()
+                return false
+            }
+        }
+        return true
+    }
 
     fun email(ctx: Context, p: Person) {
         val addr = Repo.email(ctx, p)

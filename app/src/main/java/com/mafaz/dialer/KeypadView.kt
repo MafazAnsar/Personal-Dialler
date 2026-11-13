@@ -14,7 +14,9 @@ class KeypadView(
     private val onCall: (String) -> Unit = {},
     private val onDigit: ((Char) -> Unit)? = null,
     private val onChanged: ((String) -> Unit)? = null,
-    private val onDark: Boolean = false
+    private val onDark: Boolean = false,
+    private val letters: Boolean = true,
+    private val bottomRow: Boolean = true
 ) : LinearLayout(ctx) {
 
     var contacts: List<Person> = emptyList()
@@ -48,35 +50,37 @@ class KeypadView(
         )
         for (r in rows) {
             val row = LinearLayout(ctx)
-            for ((d, l) in r) row.addView(key(d, l), cell())
+            for ((d, l) in r) row.addView(key(d, if (letters) l else ""), cell())
             addView(row, LinearLayout.LayoutParams(MP, 0, 1f))
         }
 
-        val last = LinearLayout(ctx)
-        last.addView(View(ctx), cell())
-        if (showCall) {
-            val call = TextView(ctx)
-            call.text = "\uD83D\uDCDE"
-            call.textSize = 24f
-            call.gravity = Gravity.CENTER
-            call.background = Ui.key(ctx, 0xFF2E9E4F.toInt())
-            call.setOnClickListener { onCall(sb.toString()) }
-            last.addView(call, cell())
-        } else {
+        if (bottomRow) {
+            val last = LinearLayout(ctx)
             last.addView(View(ctx), cell())
+            if (showCall) {
+                val call = TextView(ctx)
+                call.text = "\uD83D\uDCDE"
+                call.textSize = 24f
+                call.gravity = Gravity.CENTER
+                call.background = Ui.key(ctx, 0xFF2E9E4F.toInt())
+                call.setOnClickListener { onCall(sb.toString()) }
+                last.addView(call, cell())
+            } else {
+                last.addView(View(ctx), cell())
+            }
+            val back = TextView(ctx)
+            back.text = "\u232B"
+            back.textSize = 24f
+            back.gravity = Gravity.CENTER
+            back.setTextColor(if (onDark) 0xB3FFFFFF.toInt() else Ui.sub(ctx))
+            back.setOnClickListener {
+                if (sb.isNotEmpty()) sb.deleteCharAt(sb.length - 1)
+                render()
+            }
+            back.setOnLongClickListener { sb.setLength(0); render(); true }
+            last.addView(back, cell())
+            addView(last, LinearLayout.LayoutParams(MP, 0, 1f))
         }
-        val back = TextView(ctx)
-        back.text = "\u232B"
-        back.textSize = 24f
-        back.gravity = Gravity.CENTER
-        back.setTextColor(if (onDark) 0xB3FFFFFF.toInt() else Ui.sub(ctx))
-        back.setOnClickListener {
-            if (sb.isNotEmpty()) sb.deleteCharAt(sb.length - 1)
-            render()
-        }
-        back.setOnLongClickListener { sb.setLength(0); render(); true }
-        last.addView(back, cell())
-        addView(last, LinearLayout.LayoutParams(MP, 0, 1f))
         render()
         ready = true
     }
@@ -92,7 +96,7 @@ class KeypadView(
     private fun key(d: String, l: String): TextView {
         val t = TextView(context)
         t.text = if (l.isEmpty()) d else d + "\n" + l
-        t.textSize = 19f
+        t.textSize = if (letters) 19f else 24f
         t.gravity = Gravity.CENTER
         t.setTextColor(if (onDark) Color.WHITE else Ui.text(context))
         t.background = if (onDark) Ui.round(0x26FFFFFF, dp(if (Ui.square(context)) 4 else 18)) else Ui.key(context, Ui.card(context))

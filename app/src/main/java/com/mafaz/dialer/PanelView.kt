@@ -230,7 +230,20 @@ class PanelView(
         lp.setMargins(0, dp(4), 0, dp(4))
         lp.gravity = Gravity.CENTER_HORIZONTAL
         actionsCol.addView(v, lp)
-        acts.add(Act(v, id, fn))
+        val act = Act(v, id, fn)
+        acts.add(act)
+        v.setOnClickListener { onIconTap(act) }
+    }
+
+    private fun onIconTap(a: Act) {
+        val p = pane.selectedPerson()
+        if (p != null) {
+            a.fn(p)
+            if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
+            onClose()
+        } else {
+            if (Actions.openApp(context, a.id)) onClose()
+        }
     }
 
     private fun toggle(kind: String, click: () -> Unit) {

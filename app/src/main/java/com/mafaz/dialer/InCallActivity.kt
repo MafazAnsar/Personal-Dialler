@@ -30,6 +30,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import kotlin.math.min
@@ -70,10 +71,9 @@ class InCallActivity : Activity() {
     private lateinit var padWrap: LinearLayout
     private lateinit var pad: KeypadView
     private lateinit var replyB: TextView
-    private lateinit var declineCell: LinearLayout
-    private lateinit var answerCell: LinearLayout
+    private lateinit var swipeWrap: LinearLayout
+    private lateinit var swipe: SwipeAnswer
     private lateinit var endCell: LinearLayout
-    private lateinit var answerV: IconView
     private lateinit var muteV: IconView
     private lateinit var audioV: IconView
     private lateinit var audioL: TextView
@@ -82,6 +82,7 @@ class InCallActivity : Activity() {
     private val anims = ArrayList<ObjectAnimator>()
     private var answerAnim: ObjectAnimator? = null
     private var pulsing = false
+    private var wasRinging = false
 
     private var muted = false
     private var showPad = false
@@ -182,23 +183,30 @@ class InCallActivity : Activity() {
 
         root = FrameLayout(this)
         root.setBackgroundColor(dark)
+        val scroll = ScrollView(this)
+        scroll.isFillViewport = true
+        scroll.isVerticalScrollBarEnabled = false
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.gravity = Gravity.CENTER_HORIZONTAL
-        col.setPadding(dp(20), dp(48), dp(20), dp(28))
-        root.addView(col, FrameLayout.LayoutParams(MP, MP))
+        col.setPadding(dp(20), dp(40), dp(20), dp(150))
+        scroll.addView(col, FrameLayout.LayoutParams(MP, WC))
+        root.addView(scroll, FrameLayout.LayoutParams(MP, MP))
         setContentView(root)
 
+        val hDp = resources.displayMetrics.heightPixels / resources.displayMetrics.density
+        val avDp = (hDp * 0.15f).coerceIn(84f, 128f).toInt()
+        val stageDp = (avDp * 1.75f).toInt()
         val stage = FrameLayout(this)
         for (i in 0..1) {
             val r = RingView(this, Ui.accent(this))
             r.visibility = View.INVISIBLE
             rings.add(r)
-            stage.addView(r, FrameLayout.LayoutParams(dp(140), dp(140), Gravity.CENTER))
+            stage.addView(r, FrameLayout.LayoutParams(dp(avDp + 8), dp(avDp + 8), Gravity.CENTER))
         }
         avatar = AvatarView(this)
-        stage.addView(avatar, FrameLayout.LayoutParams(dp(132), dp(132), Gravity.CENTER))
-        col.addView(stage, LinearLayout.LayoutParams(dp(250), dp(240)))
+        stage.addView(avatar, FrameLayout.LayoutParams(dp(avDp), dp(avDp), Gravity.CENTER))
+        col.addView(stage, LinearLayout.LayoutParams(dp(stageDp), dp(stageDp)))
 
         nameT = label(30f, Color.WHITE, false)
         nameT.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
@@ -294,30 +302,53 @@ class InCallActivity : Activity() {
         hide.setPadding(0, 0, 0, dp(6))
         hide.setOnClickListener { showPad = false; render() }
         padWrap.addView(hide, LinearLayout.LayoutParams(MP, WC))
-        pad = KeypadView(this, showCall = false, onDigit = { ch -> dtmf(ch) }, onDark = true)
-        padWrap.addView(pad, LinearLayout.LayoutParams(MP, dp(270)))
+        pad = KeypadView(
+            this, showCall = false, onDigit = { ch -> dtmf(ch) },
+            onDark = true, letters = false, bottomRow = false
+        )
+        padWrap.addView(pad, LinearLayout.LayoutParams(MP, dp(230)))
         card.addView(padWrap, LinearLayout.LayoutParams(MP, WC))
         col.addView(card, LinearLayout.LayoutParams(MP, WC))
 
-        val bottom = LinearLayout(this)
-        bottom.gravity = Gravity.CENTER
-        val dec = bigCell("hang", 0xFFE53935.toInt(), "Decline") { CallManager.current()?.reject(false, null) }
-        val ans = bigCell("call", 0xFF2ECC71.toInt(), "Answer") {
-            CallManager.current()?.answer(VideoProfile.STATE_AUDIO_ONLY)
-        }
-        val end = bigCell("hang", 0xFFE53935.toInt(), "End") { CallManager.current()?.disconnect() }
-        declineCell = dec.first
-        answerCell = ans.first
-        answerV = ans.second
-        endCell = end.first
-        val clp = LinearLayout.LayoutParams(WC, WC)
-        clp.setMargins(dp(34), 0, dp(34), 0)
-        bottom.addView(declineCell, clp)
-        bottom.addView(endCell, LinearLayout.LayoutParams(clp))
-        bottom.addView(answerCell, LinearLayout.LayoutParams(clp))
-        val blp = LinearLayout.LayoutParams(MP, WC)
-        blp.topMargin = dp(20)
-        col.addView(bottom, blp)
+        val bar = FrameLayout(this)
+        bar.setPadding(dp(24), 0, dp(24), 0)
+
+        val endV = IconView(this, "hang")
+        endV.bgOverride = 0xFFE53935.toInt()
+        endV.glyphColor = Color.WHITE
+        endV.forceCircle = !Ui.square(this)
+        endV.setOnClickListener { CallManager.current()?.disconnect() }
+        endCell = LinearLayout(this)
+        endCell.orientation = LinearLayout.VERTICAL
+        endCell.gravity = Gravity.CENTER_HORIZONTAL
+        endCell.addView(endV, LinearLayout.LayoutParams(dp(76), dp(76)))
+        val endL = label(12f, 0xCCFFFFFF.toInt(), false)
+        endL.text = "End call"
+        val elp = LinearLayout.LayoutParams(WC, WC)
+        elp.topMargin = dp(6)
+        endCell.addView(endL, elp)
+        bar.addView(endCell, FrameLayout.LayoutParams(MP, WC, Gravity.BOTTOM))
+
+        swipeWrap = LinearLayout(this)
+        swipeWrap.orientation = LinearLayout.VERTICAL
+        swipeWrap.gravity = Gravity.CENTER_HORIZONTAL
+        swipe = SwipeAnswer(
+            this,
+            { CallManager.current()?.answer(VideoProfile.STATE_AUDIO_ONLY) },
+            { CallManager.current()?.reject(false, null) }
+        )
+        swipeWrap.addView(swipe, LinearLayout.LayoutParams(MP, dp(84)))
+        val hint = label(12f, 0x99FFFFFF.toInt(), false)
+        hint.text = "\u2039  swipe left to decline  \u00B7  swipe right to answer  \u203A"
+        val hlp = LinearLayout.LayoutParams(WC, WC)
+        hlp.topMargin = dp(10)
+        swipeWrap.addView(hint, hlp)
+        swipeWrap.visibility = View.GONE
+        bar.addView(swipeWrap, FrameLayout.LayoutParams(MP, WC, Gravity.BOTTOM))
+
+        val barLp = FrameLayout.LayoutParams(MP, WC, Gravity.BOTTOM)
+        barLp.bottomMargin = dp(28)
+        root.addView(bar, barLp)
 
         CallManager.addListener(listener)
         render()
@@ -356,7 +387,7 @@ class InCallActivity : Activity() {
     private fun startAnswerPulse() {
         if (answerAnim != null) return
         val a = ObjectAnimator.ofPropertyValuesHolder(
-            answerV,
+            swipe.handle,
             PropertyValuesHolder.ofFloat("scaleX", 1f, 1.1f),
             PropertyValuesHolder.ofFloat("scaleY", 1f, 1.1f)
         )
@@ -370,8 +401,8 @@ class InCallActivity : Activity() {
     private fun stopAnswerPulse() {
         answerAnim?.cancel()
         answerAnim = null
-        answerV.scaleX = 1f
-        answerV.scaleY = 1f
+        swipe.handle.scaleX = 1f
+        swipe.handle.scaleY = 1f
     }
 
     private fun withPerson(f: (Person) -> Unit) {
@@ -539,9 +570,10 @@ class InCallActivity : Activity() {
         grid.visibility = if (showPad) View.GONE else View.VISIBLE
         padWrap.visibility = if (showPad) View.VISIBLE else View.GONE
         replyB.visibility = if (ringing) View.VISIBLE else View.GONE
-        declineCell.visibility = if (ringing) View.VISIBLE else View.GONE
-        answerCell.visibility = if (ringing) View.VISIBLE else View.GONE
+        swipeWrap.visibility = if (ringing) View.VISIBLE else View.GONE
         endCell.visibility = if (ringing) View.GONE else View.VISIBLE
+        if (ringing && !wasRinging) swipe.reset()
+        wasRinging = ringing
 
         muteV.kind = if (muted) "micoff" else "mic"
         setOn(muteV, muted)
