@@ -198,7 +198,7 @@ class ContactsPane(
         val av = AvatarView(context)
         val name = TextView(context)
         name.textSize = 16f
-        name.setTypeface(null, Typeface.BOLD)
+        name.setTypeface(null, Typeface.NORMAL)
         name.setSingleLine()
         val sub = TextView(context)
         sub.textSize = 12f
@@ -324,7 +324,7 @@ class ContactsPane(
         val accent = Ui.accent(context)
         for (i in 0..2) {
             tabs[i].setTextColor(if (i == tab) accent else Ui.sub(context))
-            tabs[i].setTypeface(null, if (i == tab) Typeface.BOLD else Typeface.NORMAL)
+            tabs[i].setTypeface(null, Typeface.NORMAL)
         }
         stripScroll.visibility = if (favs.isEmpty()) View.GONE else View.VISIBLE
         val q = query.trim()
