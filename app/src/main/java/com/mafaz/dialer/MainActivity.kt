@@ -20,6 +20,7 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -35,6 +36,8 @@ class MainActivity : Activity() {
     private lateinit var toggle: Button
     private lateinit var sideBtn: Button
     private lateinit var swatches: LinearLayout
+    private lateinit var simBtn: Button
+    private lateinit var actionsBox: LinearLayout
 
     private fun dp(v: Int) = Ui.dp(this, v)
 
@@ -61,7 +64,9 @@ class MainActivity : Activity() {
             val p = arrayListOf(
                 Manifest.permission.READ_CONTACTS,
                 Manifest.permission.READ_CALL_LOG,
-                Manifest.permission.CALL_PHONE
+                Manifest.permission.CALL_PHONE,
+                Manifest.permission.READ_PHONE_STATE,
+                Manifest.permission.SEND_SMS
             )
             if (Build.VERSION.SDK_INT >= 33) p.add(Manifest.permission.POST_NOTIFICATIONS)
             if (Build.VERSION.SDK_INT >= 31) p.add(Manifest.permission.BLUETOOTH_CONNECT)
@@ -120,6 +125,55 @@ class MainActivity : Activity() {
         root.addView(swatches)
         buildSwatches()
         switch("Show popup after calls", "postcall", true)
+
+        heading("Calls", 18f)
+        simBtn = addBtn("SIM") {
+            val order = listOf("ask", "0", "1", "sys")
+            val now = prefs.getString("sim", "ask") ?: "ask"
+            prefs.edit().putString("sim", order[(order.indexOf(now) + 1) % order.size]).apply()
+            refresh()
+        }
+        switch("Block calls from numbers not in your contacts (careful: may block delivery or hospital calls)", "blockunknown", false)
+        switch("Block hidden numbers", "blockhidden", false)
+        text("Quick replies when declining a call (one per line):")
+        val rep = EditText(this)
+        rep.setText(prefs.getString("replies", Ui.defaultReplies))
+        rep.minLines = 4
+        rep.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        rep.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                prefs.edit().putString("replies", s?.toString() ?: "").apply()
+            }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+        root.addView(rep)
+
+        heading("Panel actions", 18f)
+        text("Tick the icons you want and use the arrows to change the order.")
+        actionsBox = LinearLayout(this)
+        actionsBox.orientation = LinearLayout.VERTICAL
+        root.addView(actionsBox)
+        buildActionRows()
+
+        heading("Text", 18f)
+        seek("Text size in lists (small, normal, large)", "fontsize", 2, 1)
+
+        heading("Backup and support", 18f)
+        addBtn("Back up notes, blocks and settings") {
+            val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "application/json"
+            i.putExtra(Intent.EXTRA_TITLE, "dialler-backup.json")
+            startActivityForResult(i, 21)
+        }
+        addBtn("Restore from a backup file") {
+            val i = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            i.addCategory(Intent.CATEGORY_OPENABLE)
+            i.type = "*/*"
+            startActivityForResult(i, 22)
+        }
+        addBtn("Share last error report") { shareCrash() }
 
         heading("WhatsApp and Telegram", 18f)
         text("Default country code for numbers starting with 0 (digits only):")
@@ -228,6 +282,102 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun toast(t: String) {
+        Toast.makeText(this, t, Toast.LENGTH_LONG).show()
+    }
+
+    private fun shareCrash() {
+        val t = CrashLog.read(this)
+        if (t == null) {
+            toast("No error report saved")
+            return
+        }
+        val i = Intent(Intent.ACTION_SEND)
+        i.type = "text/plain"
+        i.putExtra(Intent.EXTRA_TEXT, t)
+        startActivity(Intent.createChooser(i, "Share error report"))
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        try {
+            if (requestCode == 21) {
+                contentResolver.openOutputStream(uri)?.use { it.write(Backup.export(this).toByteArray()) }
+                toast("Backup saved")
+            } else if (requestCode == 22) {
+                val text = contentResolver.openInputStream(uri)?.use { String(it.readBytes()) } ?: ""
+                if (Backup.import(this, text)) {
+                    toast("Restored. Close and reopen the app.")
+                } else {
+                    toast("That file is not a valid backup")
+                }
+            }
+        } catch (e: Exception) {
+            toast("Something went wrong")
+        }
+    }
+
+    private fun buildActionRows() {
+        actionsBox.removeAllViews()
+        val on = ActionDefs.enabled(this)
+        val order = on + ActionDefs.all.filter { it !in on }
+        for (id in order) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.gravity = Gravity.CENTER_VERTICAL
+            val cb = CheckBox(this)
+            cb.text = ActionDefs.title(id)
+            cb.isChecked = id in on
+            cb.setOnCheckedChangeListener { _, checked ->
+                val cur = ActionDefs.enabled(this).toMutableList()
+                if (checked) {
+                    if (id !in cur) cur.add(id)
+                } else {
+                    cur.remove(id)
+                }
+                if (cur.isNotEmpty()) {
+                    ActionDefs.save(this, cur)
+                    restartService()
+                }
+                actionsBox.post { buildActionRows() }
+            }
+            row.addView(cb, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val up = TextView(this)
+            up.text = "\u25B2"
+            up.textSize = 20f
+            up.setPadding(dp(14), dp(6), dp(14), dp(6))
+            up.setOnClickListener { move(id, -1) }
+            val down = TextView(this)
+            down.text = "\u25BC"
+            down.textSize = 20f
+            down.setPadding(dp(14), dp(6), dp(14), dp(6))
+            down.setOnClickListener { move(id, 1) }
+            row.addView(up)
+            row.addView(down)
+            actionsBox.addView(row)
+        }
+    }
+
+    private fun move(id: String, d: Int) {
+        val cur = ActionDefs.enabled(this).toMutableList()
+        val i = cur.indexOf(id)
+        val j = i + d
+        if (i < 0 || j < 0 || j >= cur.size) return
+        java.util.Collections.swap(cur, i, j)
+        ActionDefs.save(this, cur)
+        restartService()
+        buildActionRows()
+    }
+
+    private fun simLabel(): String = when (prefs.getString("sim", "ask")) {
+        "0" -> "SIM 1"
+        "1" -> "SIM 2"
+        "sys" -> "Phone default"
+        else -> "Ask every time"
+    }
+
     private fun restartService() {
         if (!prefs.getBoolean("enabled", false)) return
         stopService(Intent(this, OverlayService::class.java))
@@ -279,5 +429,6 @@ class MainActivity : Activity() {
             mark(fsi) + " Full-screen call alerts"
         toggle.text = if (prefs.getBoolean("enabled", false)) "Stop floating dots" else "Start floating dots"
         sideBtn.text = "Dots on the " + prefs.getString("side", "left") + " edge (tap to switch)"
+        simBtn.text = "SIM for calls: " + simLabel() + " (tap to change)"
     }
 }

@@ -14,8 +14,12 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
 
     <application
+        android:name=".App"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_action_call"
         android:label="Personal Dialler"
@@ -92,6 +96,10 @@
 
         <receiver
             android:name=".CallActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".ReminderReceiver"
             android:exported="false" />
 
         <receiver

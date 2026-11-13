@@ -26,8 +26,8 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
             invalidate()
         }
 
-    private val circleKinds = setOf("wa", "tg", "block")
-    private val toggleKinds = setOf("torch", "bt", "wifi", "sound", "vib")
+    private val circleKinds = setOf("wa", "tg", "block", "signal", "viber")
+    private val toggleKinds = setOf("torch", "bt", "wifi", "sound", "vib", "data", "dnd")
     private val headerKinds = setOf("keypad", "sort")
 
     private fun brand(): Int = when (kind) {
@@ -38,6 +38,10 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
         "mail" -> 0xFFEA4335.toInt()
         "note" -> 0xFFFBC02D.toInt()
         "block" -> 0xFFD32F2F.toInt()
+        "signal" -> 0xFF3A76F0.toInt()
+        "viber" -> 0xFF7360F2.toInt()
+        "history" -> 0xFF546E7A.toInt()
+        "remind" -> 0xFFEF6C00.toInt()
         else -> 0xFF607D8B.toInt()
     }
 
@@ -86,6 +90,64 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
 
     private fun drawGlyph(c: Canvas) {
         when (kind) {
+            "signal" -> {
+                stroke(6f)
+                c.drawCircle(50f, 48f, 26f, fg)
+                fill()
+                path.reset()
+                path.moveTo(24f, 78f)
+                path.lineTo(30f, 62f)
+                path.lineTo(42f, 72f)
+                path.close()
+                c.drawPath(path, fg)
+                for (x in intArrayOf(40, 50, 60)) c.drawCircle(x.toFloat(), 48f, 3.5f, fg)
+            }
+            "viber" -> {
+                fill()
+                rect.set(24f, 24f, 76f, 62f)
+                c.drawRoundRect(rect, 14f, 14f, fg)
+                path.reset()
+                path.moveTo(36f, 60f)
+                path.lineTo(36f, 78f)
+                path.lineTo(52f, 62f)
+                path.close()
+                c.drawPath(path, fg)
+                stroke(5f, brand())
+                path.reset()
+                path.moveTo(40f, 34f)
+                path.quadTo(40f, 52f, 60f, 52f)
+                c.drawPath(path, fg)
+            }
+            "history" -> {
+                stroke(7f)
+                c.drawCircle(50f, 50f, 26f, fg)
+                c.drawLine(50f, 50f, 50f, 33f, fg)
+                c.drawLine(50f, 50f, 63f, 58f, fg)
+            }
+            "remind" -> {
+                fill()
+                c.drawCircle(50f, 44f, 17f, fg)
+                rect.set(30f, 50f, 70f, 66f)
+                c.drawRoundRect(rect, 4f, 4f, fg)
+                c.drawCircle(50f, 74f, 5f, fg)
+                stroke(5f)
+                c.drawLine(50f, 20f, 50f, 27f, fg)
+            }
+            "data" -> {
+                fill()
+                rect.set(28f, 62f, 40f, 76f)
+                c.drawRoundRect(rect, 3f, 3f, fg)
+                rect.set(44f, 48f, 56f, 76f)
+                c.drawRoundRect(rect, 3f, 3f, fg)
+                rect.set(60f, 32f, 72f, 76f)
+                c.drawRoundRect(rect, 3f, 3f, fg)
+            }
+            "dnd" -> {
+                fill()
+                c.drawCircle(46f, 50f, 24f, fg)
+                fill(bgColor())
+                c.drawCircle(58f, 42f, 20f, fg)
+            }
             "call" -> {
                 stroke(10f)
                 path.reset()

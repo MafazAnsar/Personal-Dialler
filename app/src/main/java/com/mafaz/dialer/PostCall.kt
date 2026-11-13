@@ -81,7 +81,7 @@ object PostCall {
         fun btn(text: String, color: Int, f: () -> Unit) {
             val b = TextView(ctx)
             b.text = text
-            b.textSize = 13f
+            b.textSize = 12f
             b.gravity = Gravity.CENTER
             b.setTextColor(Color.WHITE)
             b.setTypeface(null, Typeface.BOLD)
@@ -95,6 +95,7 @@ object PostCall {
         btn("Message", 0xFF1976D2.toInt()) { Actions.sms(ctx, person) }
         btn("Note", 0xFF8E24AA.toInt()) { Actions.note(ctx, person) }
         btn("Block", 0xFFC62828.toInt()) { Actions.block(ctx, person) }
+        btn("Later", 0xFF6D4C41.toInt()) { Actions.remind(ctx, person) }
         val rlp = LinearLayout.LayoutParams(MP, WC)
         rlp.topMargin = Ui.dp(ctx, 12)
         card.addView(row, rlp)

@@ -1,19 +1,26 @@
-# Personal Dialler v0.4
+# Personal Dialler v0.5
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
 ## Build
 Push to GitHub (branch main). Actions > "Build APK" > download the artifact, install app-debug.apk.
 The first build step checks that no Kotlin file was cut off during upload.
+The app is signed with the key in app/debug.keystore, so later updates install over the old version.
+(The first install of v0.5 needs the old version uninstalled once, because the signing key changed.)
 
 ## Panel
-- Opens on Frequent: your top 4 most-called numbers from the last 250 calls, then recents, no repeats. Swipe left or right anywhere on the panel to move between Frequent, Recent and Contacts
-- Drag a contact, recent or favourite onto an icon: call, SMS, WhatsApp, Telegram, email, note, block
-- Double-tap a contact or recent to repeat the last action used with them (call if none)
-- Search covers contacts and recents together
-- Keypad button (next to search) opens a keypad on the lower half; typed digits filter the list
-- Sort button flips the list so the newest or A entries sit at the bottom
-- Toggle icons: flashlight, Bluetooth, Wi-Fi, sound/vibrate
+- Opens on Frequent (top 4 of the last 250 calls, merged per contact), then Recent and Contacts. Swipe left/right anywhere to switch.
+- Drag a contact onto an icon. Icons and their order are chosen in the app: call, SMS, WhatsApp, Telegram, Signal, Viber, email, call history, remind me, note, block.
+- Double-tap repeats the last action used with that person.
+- Search covers contacts and recents. Keypad button opens a keypad on the lower half. Sort button flips the list.
+- Toggles: flashlight, Bluetooth, Wi-Fi, mobile data panel, Do Not Disturb, sound/vibrate.
 
-## Settings
-Dark or light, accent colour, square or rounded buttons, keypad opacity, dot size and opacity, panel width, side.
+## Calls
+- Dual SIM: ask every time, SIM 1, SIM 2 or phone default.
+- Call screen: audio output picker, hold, add call, swap and merge for call waiting, notes, block.
+- Decline with a quick reply SMS (edit the replies in the app). Volume key silences the ringer.
+- Block list, plus optional rules for numbers not in contacts and hidden numbers.
+- Popup after each call: call back, message, note, block, remind me later.
+
+## Support
+Back up and restore notes, blocks and settings from the app. "Share last error report" sends the last crash details.

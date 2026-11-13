@@ -10,6 +10,8 @@ object Ui {
         0xFFE57373.toInt(), 0xFFBA68C8.toInt(), 0xFFF06292.toInt()
     )
 
+    const val defaultReplies = "Can't talk now. I'll call you back.\nI'm in a meeting. Will call later.\nI'm driving. Will call you soon.\nPlease text me."
+
     fun cfg(c: Context): SharedPreferences =
         c.getSharedPreferences("settings", Context.MODE_PRIVATE)
 

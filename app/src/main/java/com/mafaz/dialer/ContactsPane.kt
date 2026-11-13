@@ -222,6 +222,13 @@ class ContactsPane(
     private fun bind(h: Holder, p: Person) {
         val c = context
         h.av.bind(p.name, p.contactId)
+        val fs = when (Ui.cfg(c).getInt("fontsize", 1)) {
+            0 -> 0.9f
+            2 -> 1.15f
+            else -> 1f
+        }
+        h.name.textSize = 16f * fs
+        h.sub.textSize = 12f * fs
         h.name.text = p.name
         h.name.setTextColor(if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt() else Ui.text(c))
         val sb = StringBuilder()
@@ -349,7 +356,7 @@ class ContactsPane(
         val counts = HashMap<String, Int>()
         val first = LinkedHashMap<String, Person>()
         for (p in src) {
-            val k = Store.key(p.number).ifEmpty { p.number }
+            val k = if (p.contactId != null) "c" + p.contactId else Store.key(p.number).ifEmpty { p.number }
             counts[k] = (counts[k] ?: 0) + 1
             if (!first.containsKey(k)) first[k] = p
         }
@@ -387,20 +394,29 @@ class ContactsPane(
         return stripScroll.canScrollHorizontally(if (dx < 0) 1 else -1)
     }
 
+    private fun applyData(r: List<Person>, a: List<Person>, f: List<Person>) {
+        recents = r
+        frequent = buildFrequent(r)
+        all = a
+        favs = f
+        if (r.isEmpty() && a.isNotEmpty()) tab = 2
+        buildStrip()
+        refresh()
+    }
+
     private fun load() {
+        val cr = Cache.recents
+        val ca = Cache.all
+        val cf = Cache.favs
+        if (cr != null && ca != null && cf != null) applyData(cr, ca, cf)
         thread {
             val r = Repo.recents(context)
             val a = Repo.contacts(context)
             val f = Repo.favourites(context)
-            ui.post {
-                recents = r
-                frequent = buildFrequent(r)
-                all = a
-                favs = f
-                if (r.isEmpty() && a.isNotEmpty()) tab = 2
-                buildStrip()
-                refresh()
-            }
+            Cache.recents = r
+            Cache.all = a
+            Cache.favs = f
+            ui.post { applyData(r, a, f) }
         }
     }
 }

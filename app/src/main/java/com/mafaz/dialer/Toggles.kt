@@ -1,11 +1,14 @@
 package com.mafaz.dialer
 
+import android.app.NotificationManager
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.provider.Settings
 import android.widget.Toast
@@ -96,6 +99,41 @@ object Toggles {
                 AudioManager.RINGER_MODE_VIBRATE else AudioManager.RINGER_MODE_NORMAL
         } catch (e: Exception) {
             Toast.makeText(ctx, "Can't change sound mode", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun dataOn(ctx: Context): Boolean = try {
+        val cm = ctx.getSystemService(ConnectivityManager::class.java)
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+        caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+    } catch (e: Exception) {
+        false
+    }
+
+    fun data(ctx: Context) {
+        start(ctx, Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))
+    }
+
+    fun dndOn(ctx: Context): Boolean = try {
+        ctx.getSystemService(NotificationManager::class.java).currentInterruptionFilter !=
+            NotificationManager.INTERRUPTION_FILTER_ALL
+    } catch (e: Exception) {
+        false
+    }
+
+    fun toggleDnd(ctx: Context) {
+        try {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            if (!nm.isNotificationPolicyAccessGranted) {
+                start(ctx, Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+                return
+            }
+            nm.setInterruptionFilter(
+                if (dndOn(ctx)) NotificationManager.INTERRUPTION_FILTER_ALL
+                else NotificationManager.INTERRUPTION_FILTER_PRIORITY
+            )
+        } catch (e: Exception) {
+            Toast.makeText(ctx, "Can't change Do Not Disturb", Toast.LENGTH_SHORT).show()
         }
     }
 }

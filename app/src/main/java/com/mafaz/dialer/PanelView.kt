@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import kotlin.math.abs
 import kotlin.math.max
@@ -26,10 +27,11 @@ class PanelView(
 
     private val MP = ViewGroup.LayoutParams.MATCH_PARENT
     private val WC = ViewGroup.LayoutParams.WRAP_CONTENT
-    private val repeatable = setOf("call", "sms", "wa", "tg", "mail")
+    private val repeatable = setOf("call", "sms", "wa", "tg", "signal", "viber", "mail")
     private val acts = ArrayList<Act>()
     private val toggles = ArrayList<IconView>()
     private val actionsCol = LinearLayout(ctx)
+    private val actionsScroll = ScrollView(ctx)
     private val holder = FrameLayout(ctx)
     private val sheet = FrameLayout(ctx)
     private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() })
@@ -47,6 +49,9 @@ class PanelView(
     private var lastX = 0f
     private var lastY = 0f
     private var closing = false
+    private var downX = 0f
+    private var downY = 0f
+    private var swipeDone = false
 
     override val dragging: Boolean get() = dragPerson != null
 
@@ -59,13 +64,9 @@ class PanelView(
         actionsCol.gravity = Gravity.CENTER_VERTICAL
         actionsCol.isClickable = true
         actionsCol.setPadding(dp(8), 0, dp(8), 0)
-        icon("call", "call") { p -> Actions.call(context, p) }
-        icon("sms", "sms") { p -> Actions.sms(context, p) }
-        icon("wa", "wa") { p -> Actions.whatsapp(context, p) }
-        icon("tg", "tg") { p -> Actions.telegram(context, p) }
-        icon("mail", "mail") { p -> Actions.email(context, p) }
-        icon("note", "note") { p -> Actions.note(context, p) }
-        icon("block", "block") { p -> Actions.block(context, p) }
+        for (id in ActionDefs.enabled(ctx)) {
+            icon(id, id) { p -> Actions.run(context, id, p) }
+        }
         actionsCol.addView(View(ctx), LinearLayout.LayoutParams(MP, dp(10)))
         toggle("torch") {
             Toggles.torch(context)
@@ -79,11 +80,23 @@ class PanelView(
             Toggles.wifi(context)
             onClose()
         }
+        toggle("data") {
+            Toggles.data(context)
+            onClose()
+        }
+        toggle("dnd") {
+            Toggles.toggleDnd(context)
+            postDelayed({ refreshToggles() }, 300)
+        }
         toggle("sound") {
             Toggles.toggleSound(context)
             refreshToggles()
         }
+        layoutToggles()
         refreshToggles()
+        actionsScroll.isFillViewport = true
+        actionsScroll.isVerticalScrollBarEnabled = false
+        actionsScroll.addView(actionsCol, FrameLayout.LayoutParams(MP, WC))
 
         holder.addView(pane, FrameLayout.LayoutParams(MP, MP))
         buildSheet()
@@ -98,9 +111,9 @@ class PanelView(
         val aLp = LinearLayout.LayoutParams(dp(66), MP)
         val gap = View(ctx)
         if (leftSide) {
-            row.addView(holder, hLp); row.addView(gap, gLp); row.addView(actionsCol, aLp)
+            row.addView(holder, hLp); row.addView(gap, gLp); row.addView(actionsScroll, aLp)
         } else {
-            row.addView(actionsCol, aLp); row.addView(gap, gLp); row.addView(holder, hLp)
+            row.addView(actionsScroll, aLp); row.addView(gap, gLp); row.addView(holder, hLp)
         }
         addView(row, FrameLayout.LayoutParams(MP, MP))
     }
@@ -164,11 +177,22 @@ class PanelView(
     private fun toggle(kind: String, click: () -> Unit) {
         val v = IconView(context, kind)
         v.setOnClickListener { click() }
-        val lp = LinearLayout.LayoutParams(dp(34), dp(34))
-        lp.setMargins(0, dp(4), 0, dp(4))
-        lp.gravity = Gravity.CENTER_HORIZONTAL
-        actionsCol.addView(v, lp)
         toggles.add(v)
+    }
+
+    private fun layoutToggles() {
+        var row: LinearLayout? = null
+        for ((i, t) in toggles.withIndex()) {
+            if (i % 2 == 0) {
+                val r = LinearLayout(context)
+                r.gravity = Gravity.CENTER
+                actionsCol.addView(r, LinearLayout.LayoutParams(MP, WC))
+                row = r
+            }
+            val lp = LinearLayout.LayoutParams(dp(30), dp(30))
+            lp.setMargins(dp(3), dp(3), dp(3), dp(3))
+            row?.addView(t, lp)
+        }
     }
 
     private fun refreshToggles() {
@@ -177,6 +201,8 @@ class PanelView(
                 "torch" -> t.on = Toggles.torchOn
                 "bt" -> t.on = Toggles.btOn(context)
                 "wifi" -> t.on = Toggles.wifiOn(context)
+                "data" -> t.on = Toggles.dataOn(context)
+                "dnd" -> t.on = Toggles.dndOn(context)
                 else -> {
                     val normal = Toggles.soundNormal(context)
                     t.kind = if (normal) "sound" else "vib"
@@ -194,8 +220,8 @@ class PanelView(
         val w = dp(320).toFloat()
         holder.translationX = if (leftSide) -w else w
         holder.animate().translationX(0f).setDuration(240).start()
-        actionsCol.translationX = if (leftSide) w else -w
-        actionsCol.animate().translationX(0f).setDuration(240).setStartDelay(40).start()
+        actionsScroll.translationX = if (leftSide) w else -w
+        actionsScroll.animate().translationX(0f).setDuration(240).setStartDelay(40).start()
     }
 
     fun dismiss(done: () -> Unit) {
@@ -280,10 +306,6 @@ class PanelView(
             onClose()
         }
     }
-
-    private var downX = 0f
-    private var downY = 0f
-    private var swipeDone = false
 
     private fun inView(v: View, x: Float, y: Float): Boolean {
         val l = IntArray(2)

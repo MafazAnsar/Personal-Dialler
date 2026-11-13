@@ -160,3 +160,9 @@ object Repo {
         return bmp
     }
 }
+
+object Cache {
+    var recents: List<Person>? = null
+    var all: List<Person>? = null
+    var favs: List<Person>? = null
+}
