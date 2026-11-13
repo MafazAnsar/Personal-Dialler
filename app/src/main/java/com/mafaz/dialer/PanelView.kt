@@ -3,6 +3,8 @@ package com.mafaz.dialer
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Rect
+import android.os.Build
+import android.util.DisplayMetrics
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -10,6 +12,8 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -52,6 +56,8 @@ class PanelView(
     private var downX = 0f
     private var downY = 0f
     private var swipeDone = false
+    private var kb = 0
+    private var rowRef: LinearLayout? = null
 
     override val dragging: Boolean get() = dragPerson != null
 
@@ -114,6 +120,7 @@ class PanelView(
         holder.addView(sheet, FrameLayout.LayoutParams(MP, sheetH, Gravity.BOTTOM))
 
         val row = LinearLayout(ctx)
+        rowRef = row
         row.orientation = LinearLayout.HORIZONTAL
         row.setPadding(dp(8), dp(40), dp(8), dp(24))
         val frac = 0.55f + 0.04f * Ui.cfg(ctx).getInt("panelw", 3)
@@ -127,6 +134,47 @@ class PanelView(
             row.addView(actionsScroll, aLp); row.addView(gap, gLp); row.addView(holder, hLp)
         }
         addView(row, FrameLayout.LayoutParams(MP, MP))
+
+        setOnApplyWindowInsetsListener { _, insets ->
+            kb = if (Build.VERSION.SDK_INT >= 30) {
+                insets.getInsets(WindowInsets.Type.ime()).bottom
+            } else {
+                insets.systemWindowInsetBottom
+            }
+            if (kb < dp(100)) kb = 0
+            applyKeyboardPadding()
+            insets
+        }
+        viewTreeObserver.addOnGlobalLayoutListener { applyKeyboardPadding() }
+    }
+
+    private fun realHeight(): Int {
+        val dm = DisplayMetrics()
+        (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(dm)
+        return dm.heightPixels
+    }
+
+    private fun currentKb(): Int {
+        if (kb > 0) return kb
+        val r = Rect()
+        getWindowVisibleDisplayFrame(r)
+        val k = realHeight() - r.bottom
+        return if (k > dp(150)) k else 0
+    }
+
+    // Lifts the panel above the on-screen keyboard so search results stay visible.
+    private fun applyKeyboardPadding() {
+        val row = rowRef ?: return
+        val k = currentKb()
+        var extra = 0
+        if (k > 0) {
+            val loc = IntArray(2)
+            row.getLocationOnScreen(loc)
+            val rowBottom = loc[1] + row.height
+            extra = max(0, rowBottom - (realHeight() - k))
+        }
+        val target = dp(24) + extra
+        if (row.paddingBottom != target) row.setPadding(dp(8), dp(40), dp(8), target)
     }
 
     private fun dp(v: Int) = Ui.dp(context, v)
@@ -226,6 +274,7 @@ class PanelView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        requestApplyInsets()
         alpha = 0f
         animate().alpha(1f).setDuration(180).start()
         val w = dp(320).toFloat()
