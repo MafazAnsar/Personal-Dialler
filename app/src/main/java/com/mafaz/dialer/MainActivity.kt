@@ -125,6 +125,7 @@ class MainActivity : Activity() {
         root.addView(swatches)
         buildSwatches()
         switch("Show popup after calls", "postcall", true)
+        switch("Show quick toggles on the panel (flashlight, Bluetooth, Wi-Fi, data, Do Not Disturb, sound)", "showtoggles", false)
 
         heading("Calls", 18f)
         simBtn = addBtn("SIM") {

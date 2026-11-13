@@ -1,11 +1,17 @@
 package com.mafaz.dialer
 
 import android.Manifest
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -26,12 +32,30 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import kotlin.math.min
+
+class RingView(ctx: Context, private val color: Int) : View(ctx) {
+    private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    override fun onDraw(c: Canvas) {
+        p.style = Paint.Style.STROKE
+        p.strokeWidth = Ui.dp(context, 3).toFloat()
+        p.color = color
+        val r = min(width, height) / 2f - p.strokeWidth
+        c.drawCircle(width / 2f, height / 2f, r, p)
+    }
+}
 
 class InCallActivity : Activity() {
     private val h = Handler(Looper.getMainLooper())
     private val MP = ViewGroup.LayoutParams.MATCH_PARENT
     private val WC = ViewGroup.LayoutParams.WRAP_CONTENT
+    private val dark = 0xFF0B0F14.toInt()
+    private val glass = 0x26FFFFFF
+    private val glassOn = 0xFFFFFFFF.toInt()
+    private val inkOn = 0xFF101418.toInt()
 
+    private lateinit var root: FrameLayout
     private lateinit var avatar: AvatarView
     private lateinit var nameT: TextView
     private lateinit var numberT: TextView
@@ -41,16 +65,23 @@ class InCallActivity : Activity() {
     private lateinit var waitT: TextView
     private lateinit var swapB: TextView
     private lateinit var mergeB: TextView
+    private lateinit var card: LinearLayout
     private lateinit var grid: LinearLayout
+    private lateinit var padWrap: LinearLayout
     private lateinit var pad: KeypadView
     private lateinit var replyB: TextView
-    private lateinit var declineB: TextView
-    private lateinit var answerB: TextView
-    private lateinit var endB: TextView
-    private lateinit var muteC: TextView
-    private lateinit var audioC: TextView
+    private lateinit var declineCell: LinearLayout
+    private lateinit var answerCell: LinearLayout
+    private lateinit var endCell: LinearLayout
+    private lateinit var answerV: IconView
+    private lateinit var muteV: IconView
+    private lateinit var audioV: IconView
     private lateinit var audioL: TextView
-    private lateinit var holdC: TextView
+    private lateinit var holdV: IconView
+    private val rings = ArrayList<RingView>()
+    private val anims = ArrayList<ObjectAnimator>()
+    private var answerAnim: ObjectAnimator? = null
+    private var pulsing = false
 
     private var muted = false
     private var showPad = false
@@ -79,48 +110,66 @@ class InCallActivity : Activity() {
         return t
     }
 
-    private fun fnBtn(glyph: String, name: String, onClick: () -> Unit): Pair<LinearLayout, TextView> {
+    private fun radius(round: Int, square: Int): Int = dp(if (Ui.square(this)) square else round)
+
+    private fun ctl(kind: String, text: String, onClick: () -> Unit): Triple<LinearLayout, IconView, TextView> {
+        val v = IconView(this, kind)
+        v.bgOverride = glass
+        v.glyphColor = Color.WHITE
+        v.forceCircle = !Ui.square(this)
+        v.setOnClickListener { onClick() }
         val cell = LinearLayout(this)
         cell.orientation = LinearLayout.VERTICAL
         cell.gravity = Gravity.CENTER_HORIZONTAL
-        val c = TextView(this)
-        c.text = glyph
-        c.textSize = 22f
-        c.gravity = Gravity.CENTER
-        c.setTextColor(Color.WHITE)
-        c.background = Ui.btn(this, 0xFF2B3844.toInt())
-        c.setOnClickListener { onClick() }
-        cell.addView(c, LinearLayout.LayoutParams(dp(60), dp(60)))
-        val l = label(12f, 0xB3FFFFFF.toInt(), false)
-        l.text = name
+        cell.addView(v, LinearLayout.LayoutParams(dp(58), dp(58)))
+        val l = label(12f, 0xCCFFFFFF.toInt(), false)
+        l.text = text
         val lp = LinearLayout.LayoutParams(WC, WC)
-        lp.topMargin = dp(4)
+        lp.topMargin = dp(6)
         cell.addView(l, lp)
-        return Pair(cell, c)
+        return Triple(cell, v, l)
     }
 
-    private fun bigBtn(color: Int, rotate: Float, onClick: () -> Unit): TextView {
-        val c = TextView(this)
-        c.text = "\uD83D\uDCDE"
-        c.textSize = 28f
-        c.gravity = Gravity.CENTER
-        c.rotation = rotate
-        c.background = Ui.btn(this, color)
-        c.setOnClickListener { onClick() }
-        return c
+    private fun bigCell(kind: String, color: Int, text: String, onClick: () -> Unit): Pair<LinearLayout, IconView> {
+        val v = IconView(this, kind)
+        v.bgOverride = color
+        v.glyphColor = Color.WHITE
+        v.forceCircle = !Ui.square(this)
+        v.setOnClickListener { onClick() }
+        val cell = LinearLayout(this)
+        cell.orientation = LinearLayout.VERTICAL
+        cell.gravity = Gravity.CENTER_HORIZONTAL
+        cell.addView(v, LinearLayout.LayoutParams(dp(72), dp(72)))
+        val l = label(12f, 0xCCFFFFFF.toInt(), false)
+        l.text = text
+        val lp = LinearLayout.LayoutParams(WC, WC)
+        lp.topMargin = dp(6)
+        cell.addView(l, lp)
+        return Pair(cell, v)
+    }
+
+    private fun chip(text: String): TextView {
+        val t = TextView(this)
+        t.text = text
+        t.textSize = 13f
+        t.setTextColor(Color.WHITE)
+        t.gravity = Gravity.CENTER
+        t.setPadding(dp(16), dp(8), dp(16), dp(8))
+        t.background = Ui.round(glass, dp(18))
+        return t
     }
 
     private fun smallBtn(text: String, onClick: () -> Unit): TextView {
-        val b = TextView(this)
-        b.text = text
-        b.textSize = 13f
-        b.setTextColor(Color.WHITE)
+        val b = chip(text)
         b.setTypeface(null, Typeface.BOLD)
-        b.gravity = Gravity.CENTER
-        b.setPadding(dp(14), dp(8), dp(14), dp(8))
-        b.background = Ui.round(Ui.accent(this), dp(8))
+        b.background = Ui.round(Ui.accent(this), dp(14))
         b.setOnClickListener { onClick() }
         return b
+    }
+
+    private fun setOn(v: IconView, on: Boolean) {
+        v.bgOverride = if (on) glassOn else glass
+        v.glyphColor = if (on) inkOn else Color.WHITE
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,39 +177,50 @@ class InCallActivity : Activity() {
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
 
-        val root = FrameLayout(this)
-        root.background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0xFF0F151B.toInt(), 0xFF1D2A36.toInt())
-        )
+        root = FrameLayout(this)
+        root.setBackgroundColor(dark)
         val col = LinearLayout(this)
         col.orientation = LinearLayout.VERTICAL
         col.gravity = Gravity.CENTER_HORIZONTAL
-        col.setPadding(dp(20), dp(64), dp(20), dp(32))
+        col.setPadding(dp(20), dp(48), dp(20), dp(28))
         root.addView(col, FrameLayout.LayoutParams(MP, MP))
         setContentView(root)
 
+        val stage = FrameLayout(this)
+        for (i in 0..1) {
+            val r = RingView(this, Ui.accent(this))
+            r.visibility = View.INVISIBLE
+            rings.add(r)
+            stage.addView(r, FrameLayout.LayoutParams(dp(140), dp(140), Gravity.CENTER))
+        }
         avatar = AvatarView(this)
-        col.addView(avatar, LinearLayout.LayoutParams(dp(104), dp(104)))
-        nameT = label(28f, Color.WHITE, true)
-        numberT = label(16f, 0xB3FFFFFF.toInt(), false)
-        noteT = label(14f, Ui.accent(this), false)
-        statusT = label(18f, 0xFFFFFFFF.toInt(), false)
-        val nlp = LinearLayout.LayoutParams(MP, WC)
-        nlp.topMargin = dp(14)
-        col.addView(nameT, nlp)
+        stage.addView(avatar, FrameLayout.LayoutParams(dp(132), dp(132), Gravity.CENTER))
+        col.addView(stage, LinearLayout.LayoutParams(dp(250), dp(240)))
+
+        nameT = label(30f, Color.WHITE, false)
+        nameT.typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        numberT = label(15f, 0xB3FFFFFF.toInt(), false)
+        noteT = chip("")
+        noteT.visibility = View.GONE
+        statusT = label(15f, 0xFFFFFFFF.toInt(), false)
+        statusT.letterSpacing = 0.12f
+        col.addView(nameT, LinearLayout.LayoutParams(MP, WC))
         col.addView(numberT, LinearLayout.LayoutParams(MP, WC))
-        col.addView(noteT, LinearLayout.LayoutParams(MP, WC))
+        val nlp = LinearLayout.LayoutParams(WC, WC)
+        nlp.topMargin = dp(8)
+        col.addView(noteT, nlp)
         val slp = LinearLayout.LayoutParams(MP, WC)
-        slp.topMargin = dp(6)
+        slp.topMargin = dp(10)
         col.addView(statusT, slp)
 
         waitBar = LinearLayout(this)
         waitBar.orientation = LinearLayout.HORIZONTAL
         waitBar.gravity = Gravity.CENTER_VERTICAL
-        waitBar.setPadding(dp(14), dp(8), dp(8), dp(8))
-        waitBar.background = Ui.round(0xFF2B3844.toInt(), dp(10))
+        waitBar.setPadding(dp(16), dp(8), dp(8), dp(8))
+        waitBar.background = Ui.round(glass, dp(16))
         waitBar.visibility = View.GONE
         waitT = label(14f, Color.WHITE, false)
         waitT.gravity = Gravity.START or Gravity.CENTER_VERTICAL
@@ -178,29 +238,43 @@ class InCallActivity : Activity() {
         b2.leftMargin = dp(6)
         waitBar.addView(mergeB, b2)
         val wlp = LinearLayout.LayoutParams(MP, WC)
-        wlp.topMargin = dp(10)
+        wlp.topMargin = dp(12)
         col.addView(waitBar, wlp)
 
-        val middle = FrameLayout(this)
-        col.addView(middle, LinearLayout.LayoutParams(MP, 0, 1f))
+        col.addView(View(this), LinearLayout.LayoutParams(MP, 0, 1f))
+
+        replyB = chip("\u2709   Reply with message")
+        replyB.setOnClickListener { replyAndDecline() }
+        replyB.visibility = View.GONE
+        val rlp = LinearLayout.LayoutParams(WC, WC)
+        rlp.bottomMargin = dp(18)
+        col.addView(replyB, rlp)
+
+        card = LinearLayout(this)
+        card.orientation = LinearLayout.VERTICAL
+        card.background = Ui.round(0x1AFFFFFF, radius(28, 10))
+        card.setPadding(dp(12), dp(18), dp(12), dp(14))
 
         grid = LinearLayout(this)
         grid.orientation = LinearLayout.VERTICAL
-        grid.gravity = Gravity.CENTER
-        val mute = fnBtn("\uD83C\uDFA4", "Mute") { muted = !muted; CallManager.service?.setMuted(muted); render() }
-        val keys = fnBtn("\u2328", "Keypad") { showPad = true; render() }
-        val spk = fnBtn("\uD83D\uDCF1", "Phone") { audioPicker() }
-        val hold = fnBtn("\u23F8", "Hold") {
+        val mute = ctl("mic", "Mute") {
+            muted = !muted
+            CallManager.service?.setMuted(muted)
+            render()
+        }
+        val keys = ctl("keypad", "Keypad") { showPad = true; render() }
+        val spk = ctl("phone", "Phone") { audioPicker() }
+        val hold = ctl("pause", "Hold") {
             val c = CallManager.current()
             if (c != null) { if (c.state == Call.STATE_HOLDING) c.unhold() else c.hold() }
         }
-        val add = fnBtn("\u2795", "Add call") { startActivity(Intent(this, DialActivity::class.java)) }
-        val note = fnBtn("\uD83D\uDCDD", "Note") { withPerson { p -> Actions.note(this, p) } }
-        val block = fnBtn("\uD83D\uDEAB", "Block") { withPerson { p -> Actions.block(this, p) } }
-        muteC = mute.second
-        audioC = spk.second
-        audioL = spk.first.getChildAt(1) as TextView
-        holdC = hold.second
+        val add = ctl("plus", "Add call") { startActivity(Intent(this, DialActivity::class.java)) }
+        val note = ctl("cnote", "Note") { withPerson { p -> Actions.note(this, p) } }
+        val block = ctl("block", "Block") { withPerson { p -> Actions.block(this, p) } }
+        muteV = mute.second
+        audioV = spk.second
+        audioL = spk.third
+        holdV = hold.second
         val r1 = LinearLayout(this)
         val r2 = LinearLayout(this)
         for (x in listOf(mute, keys, spk, hold)) r1.addView(x.first, LinearLayout.LayoutParams(0, WC, 1f))
@@ -208,43 +282,96 @@ class InCallActivity : Activity() {
         r2.addView(View(this), LinearLayout.LayoutParams(0, WC, 1f))
         grid.addView(r1, LinearLayout.LayoutParams(MP, WC))
         val r2lp = LinearLayout.LayoutParams(MP, WC)
-        r2lp.topMargin = dp(18)
+        r2lp.topMargin = dp(16)
         grid.addView(r2, r2lp)
-        middle.addView(grid, FrameLayout.LayoutParams(MP, MP))
+        card.addView(grid, LinearLayout.LayoutParams(MP, WC))
 
-        pad = KeypadView(this, showCall = false, onDigit = { ch -> dtmf(ch) })
-        pad.visibility = View.GONE
-        middle.addView(pad, FrameLayout.LayoutParams(MP, MP))
-
-        replyB = TextView(this)
-        replyB.text = "\u2709  Reply with message"
-        replyB.textSize = 14f
-        replyB.gravity = Gravity.CENTER
-        replyB.setTextColor(Color.WHITE)
-        replyB.setPadding(dp(16), dp(10), dp(16), dp(10))
-        replyB.background = Ui.round(0xFF2B3844.toInt(), dp(10))
-        replyB.setOnClickListener { replyAndDecline() }
-        replyB.visibility = View.GONE
-        val rlp = LinearLayout.LayoutParams(WC, WC)
-        rlp.bottomMargin = dp(16)
-        col.addView(replyB, rlp)
+        padWrap = LinearLayout(this)
+        padWrap.orientation = LinearLayout.VERTICAL
+        padWrap.visibility = View.GONE
+        val hide = label(14f, Ui.accent(this), true)
+        hide.text = "Hide keypad"
+        hide.setPadding(0, 0, 0, dp(6))
+        hide.setOnClickListener { showPad = false; render() }
+        padWrap.addView(hide, LinearLayout.LayoutParams(MP, WC))
+        pad = KeypadView(this, showCall = false, onDigit = { ch -> dtmf(ch) }, onDark = true)
+        padWrap.addView(pad, LinearLayout.LayoutParams(MP, dp(270)))
+        card.addView(padWrap, LinearLayout.LayoutParams(MP, WC))
+        col.addView(card, LinearLayout.LayoutParams(MP, WC))
 
         val bottom = LinearLayout(this)
         bottom.gravity = Gravity.CENTER
-        declineB = bigBtn(0xFFD32F2F.toInt(), 135f) { CallManager.current()?.reject(false, null) }
-        answerB = bigBtn(0xFF2E9E4F.toInt(), 0f) { CallManager.current()?.answer(VideoProfile.STATE_AUDIO_ONLY) }
-        endB = bigBtn(0xFFD32F2F.toInt(), 135f) {
-            if (showPad) { showPad = false; render() } else CallManager.current()?.disconnect()
+        val dec = bigCell("hang", 0xFFE53935.toInt(), "Decline") { CallManager.current()?.reject(false, null) }
+        val ans = bigCell("call", 0xFF2ECC71.toInt(), "Answer") {
+            CallManager.current()?.answer(VideoProfile.STATE_AUDIO_ONLY)
         }
-        val blp = LinearLayout.LayoutParams(dp(72), dp(72))
-        blp.setMargins(dp(36), 0, dp(36), 0)
-        bottom.addView(declineB, blp)
-        bottom.addView(endB, LinearLayout.LayoutParams(blp))
-        bottom.addView(answerB, LinearLayout.LayoutParams(blp))
-        col.addView(bottom, LinearLayout.LayoutParams(MP, WC))
+        val end = bigCell("hang", 0xFFE53935.toInt(), "End") { CallManager.current()?.disconnect() }
+        declineCell = dec.first
+        answerCell = ans.first
+        answerV = ans.second
+        endCell = end.first
+        val clp = LinearLayout.LayoutParams(WC, WC)
+        clp.setMargins(dp(34), 0, dp(34), 0)
+        bottom.addView(declineCell, clp)
+        bottom.addView(endCell, LinearLayout.LayoutParams(clp))
+        bottom.addView(answerCell, LinearLayout.LayoutParams(clp))
+        val blp = LinearLayout.LayoutParams(MP, WC)
+        blp.topMargin = dp(20)
+        col.addView(bottom, blp)
 
         CallManager.addListener(listener)
         render()
+    }
+
+    private fun startPulse() {
+        if (pulsing) return
+        pulsing = true
+        for ((i, r) in rings.withIndex()) {
+            r.visibility = View.VISIBLE
+            val a = ObjectAnimator.ofPropertyValuesHolder(
+                r,
+                PropertyValuesHolder.ofFloat("scaleX", 1f, 1.75f),
+                PropertyValuesHolder.ofFloat("scaleY", 1f, 1.75f),
+                PropertyValuesHolder.ofFloat("alpha", 0.5f, 0f)
+            )
+            a.duration = 2000
+            a.repeatCount = ValueAnimator.INFINITE
+            a.startDelay = (i * 800).toLong()
+            a.start()
+            anims.add(a)
+        }
+    }
+
+    private fun stopPulse() {
+        for (a in anims) a.cancel()
+        anims.clear()
+        for (r in rings) {
+            r.visibility = View.INVISIBLE
+            r.scaleX = 1f
+            r.scaleY = 1f
+        }
+        pulsing = false
+    }
+
+    private fun startAnswerPulse() {
+        if (answerAnim != null) return
+        val a = ObjectAnimator.ofPropertyValuesHolder(
+            answerV,
+            PropertyValuesHolder.ofFloat("scaleX", 1f, 1.1f),
+            PropertyValuesHolder.ofFloat("scaleY", 1f, 1.1f)
+        )
+        a.duration = 700
+        a.repeatCount = ValueAnimator.INFINITE
+        a.repeatMode = ValueAnimator.REVERSE
+        a.start()
+        answerAnim = a
+    }
+
+    private fun stopAnswerPulse() {
+        answerAnim?.cancel()
+        answerAnim = null
+        answerV.scaleX = 1f
+        answerV.scaleY = 1f
     }
 
     private fun withPerson(f: (Person) -> Unit) {
@@ -348,27 +475,44 @@ class InCallActivity : Activity() {
             return
         }
         val number = CallManager.numberOf(call)
+        var changed = false
         if (number != cachedNumber) {
             cachedNumber = number
             cachedPerson = Repo.lookup(this, number)
+            changed = true
         }
         val p = cachedPerson
         val name = p?.name ?: (if (number.isBlank()) "Unknown" else number)
         val note = Store.note(this, number)
         nameT.text = name
         numberT.text = if (p != null) number else ""
-        noteT.text = if (note != null) "\uD83D\uDCDD " + note else ""
+        if (note != null) {
+            noteT.text = "\uD83D\uDCDD  " + note
+            noteT.visibility = View.VISIBLE
+        } else {
+            noteT.visibility = View.GONE
+        }
         avatar.bind(name, p?.contactId)
+        if (changed) {
+            val base = avatarColor(name)
+            root.background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Ui.mix(base, dark, 0.62f), 0xFF080B0F.toInt())
+            )
+        }
 
         val ringing = call.state == Call.STATE_RINGING
+        val dialing = call.state == Call.STATE_DIALING || call.state == Call.STATE_CONNECTING
         statusT.text = when (call.state) {
-            Call.STATE_RINGING -> "Incoming call"
-            Call.STATE_DIALING, Call.STATE_CONNECTING -> "Calling\u2026"
-            Call.STATE_HOLDING -> "On hold"
+            Call.STATE_RINGING -> "INCOMING CALL"
+            Call.STATE_DIALING, Call.STATE_CONNECTING -> "CALLING\u2026"
+            Call.STATE_HOLDING -> "ON HOLD"
             Call.STATE_ACTIVE -> timer(call)
-            Call.STATE_DISCONNECTING, Call.STATE_DISCONNECTED -> "Call ended"
+            Call.STATE_DISCONNECTING, Call.STATE_DISCONNECTED -> "CALL ENDED"
             else -> ""
         }
+        if (ringing || dialing) startPulse() else stopPulse()
+        if (ringing) startAnswerPulse() else stopAnswerPulse()
 
         val other = CallManager.other()
         if (other != null) {
@@ -391,24 +535,24 @@ class InCallActivity : Activity() {
             waitBar.visibility = View.GONE
         }
 
-        grid.visibility = if (!ringing && !showPad) View.VISIBLE else View.GONE
-        pad.visibility = if (!ringing && showPad) View.VISIBLE else View.GONE
+        card.visibility = if (ringing) View.GONE else View.VISIBLE
+        grid.visibility = if (showPad) View.GONE else View.VISIBLE
+        padWrap.visibility = if (showPad) View.VISIBLE else View.GONE
         replyB.visibility = if (ringing) View.VISIBLE else View.GONE
-        declineB.visibility = if (ringing) View.VISIBLE else View.GONE
-        answerB.visibility = if (ringing) View.VISIBLE else View.GONE
-        endB.visibility = if (ringing) View.GONE else View.VISIBLE
+        declineCell.visibility = if (ringing) View.VISIBLE else View.GONE
+        answerCell.visibility = if (ringing) View.VISIBLE else View.GONE
+        endCell.visibility = if (ringing) View.GONE else View.VISIBLE
 
-        val on = Ui.accent(this)
-        val off = 0xFF2B3844.toInt()
-        muteC.background = Ui.btn(this, if (muted) on else off)
-        holdC.background = Ui.btn(this, if (call.state == Call.STATE_HOLDING) on else off)
+        muteV.kind = if (muted) "micoff" else "mic"
+        setOn(muteV, muted)
+        setOn(holdV, call.state == Call.STATE_HOLDING)
         val route = CallManager.service?.callAudioState?.route ?: CallAudioState.ROUTE_EARPIECE
         val loud = route == CallAudioState.ROUTE_SPEAKER
         val bt = route == CallAudioState.ROUTE_BLUETOOTH
         val wired = route == CallAudioState.ROUTE_WIRED_HEADSET
-        audioC.text = if (loud) "\uD83D\uDD0A" else if (bt || wired) "\uD83C\uDFA7" else "\uD83D\uDCF1"
+        audioV.kind = if (loud) "sound" else if (bt) "bt" else if (wired) "head" else "phone"
         audioL.text = if (loud) "Speaker" else if (bt) "Bluetooth" else if (wired) "Headset" else "Phone"
-        audioC.background = Ui.btn(this, if (loud || bt || wired) on else off)
+        setOn(audioV, loud || bt || wired)
         setProx(call.state == Call.STATE_ACTIVE && !loud && !bt && !wired)
     }
 
@@ -445,6 +589,8 @@ class InCallActivity : Activity() {
     override fun onPause() {
         h.removeCallbacks(tick)
         setProx(false)
+        stopPulse()
+        stopAnswerPulse()
         super.onPause()
     }
 

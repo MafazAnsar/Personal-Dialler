@@ -1,4 +1,4 @@
-# Personal Dialler v0.5
+# Personal Dialler v0.6
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 

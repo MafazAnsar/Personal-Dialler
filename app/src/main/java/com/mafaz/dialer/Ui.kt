@@ -35,6 +35,11 @@ object Ui {
 
     fun withAlpha(color: Int, a: Int): Int = (color and 0x00FFFFFF) or (a shl 24)
 
+    fun mix(a: Int, b: Int, t: Float): Int {
+        fun ch(s: Int): Int = ((((a shr s) and 0xFF) * (1f - t)) + (((b shr s) and 0xFF) * t)).toInt()
+        return (0xFF shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+    }
+
     fun round(color: Int, radiusPx: Int): GradientDrawable {
         val g = GradientDrawable()
         g.setColor(color)

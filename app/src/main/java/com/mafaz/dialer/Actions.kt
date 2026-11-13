@@ -79,6 +79,8 @@ object Actions {
         launch(ctx, Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(addr))))
     }
 
+    fun openSettings(ctx: Context) = launch(ctx, Intent(ctx, MainActivity::class.java))
+
     fun note(ctx: Context, p: Person) = quick(ctx, "note", p)
 
     fun block(ctx: Context, p: Person) = quick(ctx, "block", p)

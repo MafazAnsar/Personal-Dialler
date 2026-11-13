@@ -108,7 +108,6 @@ class ContactsPane(
         val sbLp = LinearLayout.LayoutParams(dp(40), dp(40))
         sbLp.leftMargin = dp(6)
         head.addView(sb, sbLp)
-        addView(head, LinearLayout.LayoutParams(MP, WC))
 
         stripScroll.isHorizontalScrollBarEnabled = false
         strip.orientation = LinearLayout.VERTICAL
@@ -149,6 +148,9 @@ class ContactsPane(
         listFrame.addView(list, FrameLayout.LayoutParams(MP, MP))
         listFrame.addView(empty, FrameLayout.LayoutParams(MP, WC))
         addView(listFrame, LinearLayout.LayoutParams(MP, 0, 1f))
+        val headLp = LinearLayout.LayoutParams(MP, WC)
+        headLp.topMargin = dp(6)
+        addView(head, headLp)
         refresh()
         load()
     }

@@ -8,12 +8,67 @@ import android.graphics.RectF
 import android.view.View
 import kotlin.math.min
 
+private const val CALL_D = "M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z"
+
+object Svg {
+    private val tok = Regex("[a-zA-Z]|-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?")
+
+    fun parse(d: String): Path {
+        val p = Path()
+        val t = tok.findAll(d).map { it.value }.toList()
+        var i = 0
+        var cmd = ' '
+        var x = 0f
+        var y = 0f
+        var sx = 0f
+        var sy = 0f
+        fun num(): Float = t[i++].toFloat()
+        while (i < t.size) {
+            if (t[i][0].isLetter()) {
+                cmd = t[i][0]
+                i++
+                if (cmd == 'Z' || cmd == 'z') {
+                    p.close()
+                    x = sx
+                    y = sy
+                    continue
+                }
+            }
+            when (cmd) {
+                'M' -> { x = num(); y = num(); p.moveTo(x, y); sx = x; sy = y; cmd = 'L' }
+                'm' -> { x += num(); y += num(); p.moveTo(x, y); sx = x; sy = y; cmd = 'l' }
+                'L' -> { x = num(); y = num(); p.lineTo(x, y) }
+                'l' -> { x += num(); y += num(); p.lineTo(x, y) }
+                'H' -> { x = num(); p.lineTo(x, y) }
+                'h' -> { x += num(); p.lineTo(x, y) }
+                'V' -> { y = num(); p.lineTo(x, y) }
+                'v' -> { y += num(); p.lineTo(x, y) }
+                'C' -> {
+                    val x1 = num(); val y1 = num(); val x2 = num(); val y2 = num()
+                    val x3 = num(); val y3 = num()
+                    p.cubicTo(x1, y1, x2, y2, x3, y3)
+                    x = x3; y = y3
+                }
+                'c' -> {
+                    val x1 = x + num(); val y1 = y + num(); val x2 = x + num(); val y2 = y + num()
+                    val x3 = x + num(); val y3 = y + num()
+                    p.cubicTo(x1, y1, x2, y2, x3, y3)
+                    x = x3; y = y3
+                }
+                else -> return p
+            }
+        }
+        return p
+    }
+}
+
 class IconView(ctx: Context, var kind: String) : View(ctx) {
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG)
     private val fg = Paint(Paint.ANTI_ALIAS_FLAG)
     private val path = Path()
     private val rect = RectF()
     private val white = 0xFFFFFFFF.toInt()
+    private val callPath: Path by lazy { Svg.parse(CALL_D) }
 
     var hot = false
         set(v) {
@@ -25,10 +80,27 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
             field = v
             invalidate()
         }
+    var bgOverride: Int? = null
+        set(v) {
+            field = v
+            invalidate()
+        }
+    var glyphColor: Int? = null
+        set(v) {
+            field = v
+            invalidate()
+        }
+    var forceCircle = false
+        set(v) {
+            field = v
+            invalidate()
+        }
 
     private val circleKinds = setOf("wa", "tg", "block", "signal", "viber")
     private val toggleKinds = setOf("torch", "bt", "wifi", "sound", "vib", "data", "dnd")
     private val headerKinds = setOf("keypad", "sort")
+
+    private fun ink(): Int = glyphColor ?: white
 
     private fun brand(): Int = when (kind) {
         "call" -> 0xFF2EA84F.toInt()
@@ -45,13 +117,17 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
         else -> 0xFF607D8B.toInt()
     }
 
-    private fun bgColor(): Int = when {
-        kind in toggleKinds -> if (on) Ui.accent(context) else 0xFF3A4650.toInt()
-        kind in headerKinds -> Ui.card(context)
-        else -> brand()
+    private fun bgColor(): Int {
+        val o = bgOverride
+        if (o != null) return o
+        return when {
+            kind in toggleKinds -> if (on) Ui.accent(context) else 0xFF3A4650.toInt()
+            kind in headerKinds -> Ui.card(context)
+            else -> brand()
+        }
     }
 
-    private fun stroke(w: Float, color: Int = white) {
+    private fun stroke(w: Float, color: Int = ink()) {
         fg.style = Paint.Style.STROKE
         fg.strokeWidth = w
         fg.strokeCap = Paint.Cap.ROUND
@@ -59,7 +135,7 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
         fg.color = color
     }
 
-    private fun fill(color: Int = white) {
+    private fun fill(color: Int = ink()) {
         fg.style = Paint.Style.FILL
         fg.color = color
     }
@@ -74,22 +150,93 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
         canvas.restore()
     }
 
+    private fun isCircle(): Boolean = if (bgOverride != null) forceCircle else kind in circleKinds
+
     private fun drawBg(c: Canvas) {
         bg.style = Paint.Style.FILL
         bg.color = bgColor()
         rect.set(0f, 0f, 100f, 100f)
-        if (kind in circleKinds) c.drawCircle(50f, 50f, 50f, bg) else c.drawRoundRect(rect, 22f, 22f, bg)
+        if (isCircle()) c.drawCircle(50f, 50f, 50f, bg) else c.drawRoundRect(rect, 22f, 22f, bg)
         if (hot) {
             bg.style = Paint.Style.STROKE
             bg.strokeWidth = 6f
             bg.color = white
             rect.set(3f, 3f, 97f, 97f)
-            if (kind in circleKinds) c.drawCircle(50f, 50f, 47f, bg) else c.drawRoundRect(rect, 20f, 20f, bg)
+            if (isCircle()) c.drawCircle(50f, 50f, 47f, bg) else c.drawRoundRect(rect, 20f, 20f, bg)
         }
+    }
+
+    private fun drawCall(c: Canvas, rot: Float) {
+        c.save()
+        if (rot != 0f) c.rotate(rot, 50f, 50f)
+        c.translate(20f, 20f)
+        c.scale(60f / 24f, 60f / 24f)
+        fill()
+        c.drawPath(callPath, fg)
+        c.restore()
     }
 
     private fun drawGlyph(c: Canvas) {
         when (kind) {
+            "call" -> drawCall(c, 0f)
+            "hang" -> drawCall(c, 135f)
+            "mic", "micoff" -> {
+                fill()
+                rect.set(40f, 20f, 60f, 56f)
+                c.drawRoundRect(rect, 10f, 10f, fg)
+                stroke(6f)
+                rect.set(31f, 34f, 69f, 70f)
+                c.drawArc(rect, 0f, 180f, false, fg)
+                c.drawLine(50f, 70f, 50f, 80f, fg)
+                c.drawLine(40f, 80f, 60f, 80f, fg)
+                if (kind == "micoff") c.drawLine(28f, 24f, 72f, 78f, fg)
+            }
+            "pause" -> {
+                fill()
+                rect.set(33f, 26f, 46f, 74f)
+                c.drawRoundRect(rect, 4f, 4f, fg)
+                rect.set(54f, 26f, 67f, 74f)
+                c.drawRoundRect(rect, 4f, 4f, fg)
+            }
+            "plus" -> {
+                stroke(8f)
+                c.drawLine(50f, 27f, 50f, 73f, fg)
+                c.drawLine(27f, 50f, 73f, 50f, fg)
+            }
+            "cnote" -> {
+                stroke(6f)
+                rect.set(31f, 22f, 69f, 78f)
+                c.drawRoundRect(rect, 7f, 7f, fg)
+                for (y in intArrayOf(38, 50, 62)) c.drawLine(40f, y.toFloat(), 60f, y.toFloat(), fg)
+            }
+            "phone" -> {
+                stroke(6f)
+                rect.set(36f, 18f, 64f, 82f)
+                c.drawRoundRect(rect, 8f, 8f, fg)
+                c.drawLine(45f, 70f, 55f, 70f, fg)
+            }
+            "head" -> {
+                stroke(7f)
+                rect.set(28f, 24f, 72f, 70f)
+                c.drawArc(rect, 180f, 180f, false, fg)
+                fill()
+                rect.set(25f, 46f, 39f, 72f)
+                c.drawRoundRect(rect, 5f, 5f, fg)
+                rect.set(61f, 46f, 75f, 72f)
+                c.drawRoundRect(rect, 5f, 5f, fg)
+            }
+            "gear" -> {
+                stroke(7f)
+                c.drawCircle(50f, 50f, 22f, fg)
+                for (k in 0 until 8) {
+                    val a = Math.toRadians(k * 45.0)
+                    val cs = Math.cos(a).toFloat()
+                    val sn = Math.sin(a).toFloat()
+                    c.drawLine(50f + 26f * cs, 50f + 26f * sn, 50f + 36f * cs, 50f + 36f * sn, fg)
+                }
+                fill()
+                c.drawCircle(50f, 50f, 8f, fg)
+            }
             "signal" -> {
                 stroke(6f)
                 c.drawCircle(50f, 48f, 26f, fg)
@@ -147,18 +294,6 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
                 c.drawCircle(46f, 50f, 24f, fg)
                 fill(bgColor())
                 c.drawCircle(58f, 42f, 20f, fg)
-            }
-            "call" -> {
-                stroke(10f)
-                path.reset()
-                path.moveTo(34f, 34f)
-                path.quadTo(32f, 68f, 66f, 66f)
-                c.drawPath(path, fg)
-                fill()
-                rect.set(24f, 22f, 46f, 38f)
-                c.drawRoundRect(rect, 6f, 6f, fg)
-                rect.set(62f, 60f, 78f, 78f)
-                c.drawRoundRect(rect, 6f, 6f, fg)
             }
             "sms" -> {
                 fill()
@@ -287,7 +422,7 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
                 }
             }
             "keypad" -> {
-                fill(Ui.text(context))
+                fill(glyphColor ?: Ui.text(context))
                 for (x in intArrayOf(30, 50, 70)) {
                     for (y in intArrayOf(30, 50, 70)) c.drawCircle(x.toFloat(), y.toFloat(), 6f, fg)
                 }

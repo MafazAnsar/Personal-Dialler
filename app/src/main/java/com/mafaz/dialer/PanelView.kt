@@ -68,32 +68,43 @@ class PanelView(
             icon(id, id) { p -> Actions.run(context, id, p) }
         }
         actionsCol.addView(View(ctx), LinearLayout.LayoutParams(MP, dp(10)))
-        toggle("torch") {
-            Toggles.torch(context)
-            postDelayed({ refreshToggles() }, 250)
-        }
-        toggle("bt") {
-            Toggles.bluetooth(context)
+        val gear = IconView(ctx, "gear")
+        gear.setOnClickListener {
+            Actions.openSettings(context)
             onClose()
         }
-        toggle("wifi") {
-            Toggles.wifi(context)
-            onClose()
-        }
-        toggle("data") {
-            Toggles.data(context)
-            onClose()
-        }
-        toggle("dnd") {
-            Toggles.toggleDnd(context)
-            postDelayed({ refreshToggles() }, 300)
-        }
-        toggle("sound") {
-            Toggles.toggleSound(context)
+        val gLpIcon = LinearLayout.LayoutParams(dp(40), dp(40))
+        gLpIcon.setMargins(0, dp(6), 0, dp(6))
+        gLpIcon.gravity = Gravity.CENTER_HORIZONTAL
+        actionsCol.addView(gear, gLpIcon)
+        if (Ui.cfg(ctx).getBoolean("showtoggles", false)) {
+            toggle("torch") {
+                Toggles.torch(context)
+                postDelayed({ refreshToggles() }, 250)
+            }
+            toggle("bt") {
+                Toggles.bluetooth(context)
+                onClose()
+            }
+            toggle("wifi") {
+                Toggles.wifi(context)
+                onClose()
+            }
+            toggle("data") {
+                Toggles.data(context)
+                onClose()
+            }
+            toggle("dnd") {
+                Toggles.toggleDnd(context)
+                postDelayed({ refreshToggles() }, 300)
+            }
+            toggle("sound") {
+                Toggles.toggleSound(context)
+                refreshToggles()
+            }
+            layoutToggles()
             refreshToggles()
         }
-        layoutToggles()
-        refreshToggles()
         actionsScroll.isFillViewport = true
         actionsScroll.isVerticalScrollBarEnabled = false
         actionsScroll.addView(actionsCol, FrameLayout.LayoutParams(MP, WC))
@@ -108,7 +119,7 @@ class PanelView(
         val frac = 0.55f + 0.04f * Ui.cfg(ctx).getInt("panelw", 3)
         val hLp = LinearLayout.LayoutParams(0, MP, frac)
         val gLp = LinearLayout.LayoutParams(0, MP, max(0.05f, 1f - frac))
-        val aLp = LinearLayout.LayoutParams(dp(66), MP)
+        val aLp = LinearLayout.LayoutParams(dp(78), MP)
         val gap = View(ctx)
         if (leftSide) {
             row.addView(holder, hLp); row.addView(gap, gLp); row.addView(actionsScroll, aLp)
@@ -167,8 +178,8 @@ class PanelView(
     private fun icon(kind: String, id: String, fn: (Person) -> Unit) {
         val v = IconView(context, kind)
         v.alpha = 0.92f
-        val lp = LinearLayout.LayoutParams(dp(46), dp(46))
-        lp.setMargins(0, dp(5), 0, dp(5))
+        val lp = LinearLayout.LayoutParams(dp(54), dp(54))
+        lp.setMargins(0, dp(4), 0, dp(4))
         lp.gravity = Gravity.CENTER_HORIZONTAL
         actionsCol.addView(v, lp)
         acts.add(Act(v, id, fn))

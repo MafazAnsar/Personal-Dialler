@@ -58,3 +58,11 @@ class AvatarView(ctx: Context) : View(ctx) {
         }
     }
 }
+
+private val AVATAR_PALETTE = intArrayOf(
+    0xFF5C6BC0.toInt(), 0xFF26A69A.toInt(), 0xFFEF6C00.toInt(), 0xFF8E24AA.toInt(),
+    0xFF3949AB.toInt(), 0xFF00897B.toInt(), 0xFFD81B60.toInt(), 0xFF546E7A.toInt()
+)
+
+fun avatarColor(name: String): Int =
+    AVATAR_PALETTE[(name.hashCode() and 0x7fffffff) % AVATAR_PALETTE.size]

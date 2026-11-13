@@ -1,6 +1,7 @@
 package com.mafaz.dialer
 
 import android.content.Context
+import android.graphics.Color
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -12,7 +13,8 @@ class KeypadView(
     private val showCall: Boolean = true,
     private val onCall: (String) -> Unit = {},
     private val onDigit: ((Char) -> Unit)? = null,
-    private val onChanged: ((String) -> Unit)? = null
+    private val onChanged: ((String) -> Unit)? = null,
+    private val onDark: Boolean = false
 ) : LinearLayout(ctx) {
 
     var contacts: List<Person> = emptyList()
@@ -30,7 +32,7 @@ class KeypadView(
         display.textSize = 26f
         display.gravity = Gravity.CENTER
         display.setSingleLine()
-        display.setTextColor(Ui.text(ctx))
+        display.setTextColor(if (onDark) Color.WHITE else Ui.text(ctx))
         match.textSize = 13f
         match.gravity = Gravity.CENTER
         match.setSingleLine()
@@ -67,7 +69,7 @@ class KeypadView(
         back.text = "\u232B"
         back.textSize = 24f
         back.gravity = Gravity.CENTER
-        back.setTextColor(Ui.sub(ctx))
+        back.setTextColor(if (onDark) 0xB3FFFFFF.toInt() else Ui.sub(ctx))
         back.setOnClickListener {
             if (sb.isNotEmpty()) sb.deleteCharAt(sb.length - 1)
             render()
@@ -92,8 +94,8 @@ class KeypadView(
         t.text = if (l.isEmpty()) d else d + "\n" + l
         t.textSize = 19f
         t.gravity = Gravity.CENTER
-        t.setTextColor(Ui.text(context))
-        t.background = Ui.key(context, Ui.card(context))
+        t.setTextColor(if (onDark) Color.WHITE else Ui.text(context))
+        t.background = if (onDark) Ui.round(0x26FFFFFF, dp(if (Ui.square(context)) 4 else 18)) else Ui.key(context, Ui.card(context))
         t.setOnClickListener { press(d[0]) }
         if (d == "0" && showCall) t.setOnLongClickListener { press('+'); true }
         return t
