@@ -11,6 +11,12 @@ import android.provider.Settings
 class LaunchActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // The launcher opens this Activity with its own window transition. The overlay panel
+        // also animates open immediately after, so suppress the activity transition to avoid
+        // overlapping animations when the app icon is tapped.
+        window.setWindowAnimations(0)
+
         val ready = Settings.canDrawOverlays(this) &&
             checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
