@@ -59,7 +59,9 @@ class DialerInCallService : InCallService() {
             val i = Intent(this, InCallActivity::class.java)
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(i)
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+            AppLog.w(this, "openUi", e)
+        }
     }
 
     private fun act(title: String, action: String, icon: Int): Notification.Action {

@@ -61,6 +61,8 @@ class PanelView(
     private var downY = 0f
     private var swipeDone = false
     private var kb = 0
+    private var topPad = Ui.dp(ctx, 40)
+    private var botPad = Ui.dp(ctx, 24)
     private var layer: FrameLayout? = null
     private var hadFocus = false
     private val inPanel = setOf("note", "history", "remind", "block", "fav")
@@ -131,7 +133,7 @@ class PanelView(
         val row = LinearLayout(ctx)
         rowRef = row
         row.orientation = LinearLayout.HORIZONTAL
-        row.setPadding(dp(8), dp(40), dp(8), dp(24))
+        row.setPadding(dp(8), topPad, dp(8), botPad)
         val frac = 0.55f + 0.04f * Ui.cfg(ctx).getInt("panelw", 3)
         val hLp = LinearLayout.LayoutParams(0, MP, frac)
         val gLp = LinearLayout.LayoutParams(0, MP, max(0.05f, 1f - frac))
@@ -151,6 +153,11 @@ class PanelView(
                 insets.systemWindowInsetBottom
             }
             if (kb < dp(100)) kb = 0
+            if (Build.VERSION.SDK_INT >= 35) {
+                val b = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                if (b.top > 0) topPad = b.top + dp(12)
+                if (b.bottom > 0) botPad = b.bottom + dp(12)
+            }
             applyKeyboardPadding()
             insets
         }
@@ -182,8 +189,10 @@ class PanelView(
             val rowBottom = loc[1] + row.height
             extra = max(0, rowBottom - (realHeight() - k))
         }
-        val target = dp(24) + extra
-        if (row.paddingBottom != target) row.setPadding(dp(8), dp(40), dp(8), target)
+        val target = botPad + extra
+        if (row.paddingBottom != target || row.paddingTop != topPad) {
+            row.setPadding(dp(8), topPad, dp(8), target)
+        }
     }
 
     private fun dp(v: Int) = Ui.dp(context, v)

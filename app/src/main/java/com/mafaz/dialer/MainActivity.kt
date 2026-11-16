@@ -15,11 +15,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.text.Editable
 import android.text.InputType
-import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -53,6 +52,15 @@ class MainActivity : Activity() {
         scroll.addView(root)
         setContentView(scroll)
         scroll.setBackgroundColor(Ui.solid(this))
+        if (Build.VERSION.SDK_INT >= 35) {
+            // Android 15 draws edge to edge: pad the content by the real bar and cutout sizes.
+            scroll.setOnApplyWindowInsetsListener { _, insets ->
+                val b = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                root.setPadding(dp(20) + b.left, dp(16) + b.top, dp(20) + b.right, dp(32) + b.bottom)
+                insets
+            }
+            scroll.requestApplyInsets()
+        }
         window.statusBarColor = Ui.solid(this)
         window.navigationBarColor = Ui.solid(this)
         if (!Ui.dark(this)) {
@@ -152,13 +160,7 @@ class MainActivity : Activity() {
         rep.setText(prefs.getString("replies", Ui.defaultReplies))
         rep.minLines = 4
         rep.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        rep.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("replies", s?.toString() ?: "").apply()
-            }
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-        })
+        rep.afterTextChanged { t -> prefs.edit().putString("replies", t).apply() }
         styleEdit(rep)
         root.addView(rep)
 
@@ -193,15 +195,10 @@ class MainActivity : Activity() {
         val cc = EditText(this)
         cc.inputType = InputType.TYPE_CLASS_NUMBER
         cc.setText(prefs.getString("cc", "94"))
-        cc.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("cc", s?.toString()?.filter { it.isDigit() } ?: "").apply()
-            }
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-        })
+        cc.afterTextChanged { t -> prefs.edit().putString("cc", t.filter { it.isDigit() }).apply() }
         styleEdit(cc)
         root.addView(cc)
+        numLenControl()
 
         val tip = TextView(this)
         tip.text = "If a permission switch is greyed out: Settings > Apps > Personal Dialler > three-dot menu > Allow restricted settings."
@@ -209,6 +206,36 @@ class MainActivity : Activity() {
         tip.setTextColor(Ui.sub(this))
         tip.setPadding(0, dp(20), 0, 0)
         root.addView(tip)
+    }
+
+    private fun numLenControl() {
+        val label = TextView(this)
+        label.setTextColor(Ui.text(this))
+        label.setPadding(0, dp(14), 0, dp(2))
+        label.text = "Digits compared when matching numbers: " + Store.numLen
+        root.addView(label)
+        val hint = TextView(this)
+        hint.textSize = 12f
+        hint.setTextColor(Ui.sub(this))
+        hint.text = "Used for notes, blocks and favourites (7 to 12). Lowering it is safe; raising it keeps older entries working."
+        root.addView(hint)
+        val sb = SeekBar(this)
+        sb.max = 5
+        sb.progress = Store.numLen - 7
+        sb.progressTintList = ColorStateList.valueOf(Ui.accent(this))
+        sb.thumbTintList = ColorStateList.valueOf(Ui.accent(this))
+        sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                label.text = "Digits compared when matching numbers: " + (p + 7)
+            }
+
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+
+            override fun onStopTrackingTouch(s: SeekBar?) {
+                Store.setNumLen(this@MainActivity, (s?.progress ?: 2) + 7)
+            }
+        })
+        root.addView(sb)
     }
 
     private fun styleEdit(et: EditText) {
@@ -347,6 +374,7 @@ class MainActivity : Activity() {
             } else if (requestCode == 22) {
                 val text = contentResolver.openInputStream(uri)?.use { String(it.readBytes()) } ?: ""
                 if (Backup.import(this, text)) {
+                    Store.init(this)
                     toast("Restored. Close and reopen the app.")
                 } else {
                     toast("That file is not a valid backup")

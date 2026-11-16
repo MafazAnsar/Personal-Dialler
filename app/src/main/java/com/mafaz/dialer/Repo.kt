@@ -9,7 +9,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.CallLog
 import android.provider.ContactsContract
+import android.os.Handler
+import android.os.Looper
 import android.util.LruCache
+import kotlin.concurrent.thread
 
 data class Person(
     val name: String,
@@ -97,13 +100,21 @@ object Repo {
         return out
     }
 
-    fun recents(ctx: Context, limit: Int = 250): List<Person> {
+    // Contact id from a call-log lookup uri such as content://com.android.contacts/contacts/lookup/<key>/<id>.
+    private fun idFromLookupUri(raw: String?): Long? {
+        if (raw.isNullOrEmpty()) return null
+        val seg = Uri.parse(raw).pathSegments
+        return if (seg.size >= 4 && seg[1] == "lookup") seg[3].toLongOrNull() else null
+    }
+
+    // No per-row queries: contact ids and names come from the call log itself, or from the
+    // contacts that were already loaded (known, keyed by Store.key).
+    fun recents(ctx: Context, limit: Int = 250, known: Map<String, Person> = emptyMap()): List<Person> {
         if (!has(ctx, Manifest.permission.READ_CALL_LOG)) return emptyList()
         val out = ArrayList<Person>()
-        val ids = HashMap<String, Long?>()
         val proj = arrayOf(
             CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE,
-            CallLog.Calls.DATE, CallLog.Calls.DURATION
+            CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.CACHED_LOOKUP_URI
         )
         ctx.contentResolver.query(
             CallLog.Calls.CONTENT_URI, proj, null, null, CallLog.Calls.DATE + " DESC"
@@ -112,17 +123,34 @@ object Repo {
                 val num = c.getString(0) ?: continue
                 if (num.isBlank()) continue
                 val cached = c.getString(1)
-                var id: Long? = null
-                if (!cached.isNullOrBlank()) {
-                    val k = Store.key(num)
-                    if (!ids.containsKey(k)) ids[k] = lookup(ctx, num)?.contactId
-                    id = ids[k]
-                }
-                val name = if (cached.isNullOrBlank()) num else cached
+                val match = known[Store.key(num)]
+                val id = idFromLookupUri(c.getString(5)) ?: match?.contactId
+                val name = if (!cached.isNullOrBlank()) cached else (match?.name ?: num)
                 out.add(Person(name, num, id, c.getInt(2), c.getLong(3), c.getLong(4)))
             }
         }
         return out
+    }
+
+    // Loads everything off the main thread and calls back on the main thread.
+    // If the cache is warm it calls back straight away (on the calling thread) and then refreshes.
+    fun loadAll(ctx: Context, cb: (List<Person>, List<Person>, List<Person>) -> Unit) {
+        val app = ctx.applicationContext
+        val cr = Cache.recents
+        val ca = Cache.all
+        val cf = Cache.favs
+        if (cr != null && ca != null && cf != null) cb(cr, ca, cf)
+        val main = Handler(Looper.getMainLooper())
+        thread {
+            val gen = Cache.generation()
+            val all = contacts(app)
+            val known = HashMap<String, Person>()
+            for (p in all) known.putIfAbsent(Store.key(p.number), p)
+            val rec = recents(app, 250, known)
+            val fav = favourites(app)
+            Cache.put(gen, rec, all, fav)
+            main.post { cb(rec, all, fav) }
+        }
     }
 
     fun lookup(ctx: Context, number: String): Person? {
@@ -136,7 +164,9 @@ object Repo {
             ctx.contentResolver.query(uri, proj, null, null, null)?.use { c ->
                 if (c.moveToFirst()) out = Person(c.getString(1) ?: number, number, c.getLong(0))
             }
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+            AppLog.w(ctx, "Repo.lookup", e)
+        }
         return out
     }
 
@@ -165,14 +195,45 @@ object Repo {
                 bmp = BitmapFactory.decodeStream(s)
                 s.close()
             }
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+            AppLog.w(ctx, "Repo.photo", e)
+        }
         if (bmp != null) photoCache.put(id, bmp) else noPhoto.add(id)
         return bmp
     }
 }
 
 object Cache {
+    private val lock = Any()
+    private var gen = 0
+
+    @Volatile
     var recents: List<Person>? = null
+
+    @Volatile
     var all: List<Person>? = null
+
+    @Volatile
     var favs: List<Person>? = null
+
+    fun generation(): Int = synchronized(lock) { gen }
+
+    // Stores a finished load unless the cache was invalidated while it was running.
+    fun put(startedAt: Int, r: List<Person>, a: List<Person>, f: List<Person>) {
+        synchronized(lock) {
+            if (startedAt != gen) return
+            recents = r
+            all = a
+            favs = f
+        }
+    }
+
+    fun clear() {
+        synchronized(lock) {
+            gen++
+            recents = null
+            all = null
+            favs = null
+        }
+    }
 }

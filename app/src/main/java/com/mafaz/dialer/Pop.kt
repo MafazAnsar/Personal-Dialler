@@ -3,9 +3,11 @@ package com.mafaz.dialer
 import android.app.Activity
 import android.app.Dialog
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
 
@@ -17,6 +19,13 @@ object Pop {
         val pad = Ui.dp(act, 24)
         wrap.setPadding(pad, pad, pad, pad)
         wrap.setOnClickListener { d.dismiss() }
+        if (Build.VERSION.SDK_INT >= 35) {
+            wrap.setOnApplyWindowInsetsListener { v, insets ->
+                val b = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                v.setPadding(pad + b.left, pad + b.top, pad + b.right, pad + b.bottom)
+                insets
+            }
+        }
         wrap.addView(
             card,
             FrameLayout.LayoutParams(Ui.dp(act, widthDp), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER)

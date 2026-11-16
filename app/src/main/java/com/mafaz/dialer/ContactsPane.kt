@@ -432,18 +432,6 @@ class ContactsPane(
     }
 
     private fun load() {
-        val cr = Cache.recents
-        val ca = Cache.all
-        val cf = Cache.favs
-        if (cr != null && ca != null && cf != null) applyData(cr, ca, cf)
-        thread {
-            val r = Repo.recents(context)
-            val a = Repo.contacts(context)
-            val f = Repo.favourites(context)
-            Cache.recents = r
-            Cache.all = a
-            Cache.favs = f
-            ui.post { applyData(r, a, f) }
-        }
+        Repo.loadAll(context) { r, a, f -> applyData(r, a, f) }
     }
 }

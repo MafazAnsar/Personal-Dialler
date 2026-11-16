@@ -3,6 +3,9 @@ package com.mafaz.dialer
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.drawable.GradientDrawable
+import android.text.Editable
+import android.text.TextWatcher
+import android.widget.EditText
 
 object Ui {
     val accents = intArrayOf(
@@ -59,4 +62,16 @@ object Ui {
 
     fun btn(c: Context, color: Int): GradientDrawable =
         if (square(c)) round(color, dp(c, 6)) else circle(color)
+}
+
+fun EditText.afterTextChanged(f: (String) -> Unit) {
+    addTextChangedListener(object : TextWatcher {
+        override fun afterTextChanged(s: Editable?) {
+            f(s?.toString() ?: "")
+        }
+
+        override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+
+        override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+    })
 }

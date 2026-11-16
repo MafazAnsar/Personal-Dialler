@@ -11,7 +11,12 @@ import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.database.ContentObserver
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.CallLog
+import android.provider.ContactsContract
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
@@ -27,6 +32,7 @@ class OverlayService : Service() {
     private lateinit var prefs: SharedPreferences
     private var handle: View? = null
     private var panel: PanelView? = null
+    private var observer: ContentObserver? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -36,12 +42,30 @@ class OverlayService : Service() {
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
         startInForeground()
         Toggles.init(this)
+        registerObservers()
         if (Settings.canDrawOverlays(this)) showHandle() else stopSelf()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
 
+    private fun registerObservers() {
+        val o = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                Cache.clear()
+            }
+        }
+        try {
+            contentResolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, o)
+            contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, o)
+            observer = o
+        } catch (e: Exception) {
+            AppLog.w(this, "OverlayService.observers", e)
+        }
+    }
+
     override fun onDestroy() {
+        observer?.let { contentResolver.unregisterContentObserver(it) }
+        observer = null
         panel?.let { try { wm.removeView(it) } catch (e: Exception) { } }
         panel = null
         handle?.let { try { wm.removeView(it) } catch (e: Exception) { } }

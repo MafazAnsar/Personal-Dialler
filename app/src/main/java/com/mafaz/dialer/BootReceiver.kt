@@ -11,7 +11,9 @@ class BootReceiver : BroadcastReceiver() {
         if (prefs.getBoolean("enabled", false) && Settings.canDrawOverlays(c)) {
             try {
                 c.startForegroundService(Intent(c, OverlayService::class.java))
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                AppLog.w(c, "BootReceiver", e)
+            }
         }
     }
 }
