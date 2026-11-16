@@ -45,4 +45,20 @@ object Reminder {
         )
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + minutes * 60000L, pi)
     }
+
+    val labels = arrayOf("In 15 minutes", "In 1 hour", "In 3 hours", "Tomorrow at 9 am")
+
+    fun minutesFor(choice: Int): Long = when (choice) {
+        0 -> 15L
+        1 -> 60L
+        2 -> 180L
+        else -> {
+            val c = java.util.Calendar.getInstance()
+            c.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            c.set(java.util.Calendar.HOUR_OF_DAY, 9)
+            c.set(java.util.Calendar.MINUTE, 0)
+            c.set(java.util.Calendar.SECOND, 0)
+            (c.timeInMillis - System.currentTimeMillis()) / 60000L
+        }
+    }
 }

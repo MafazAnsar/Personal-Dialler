@@ -160,6 +160,14 @@ class ContactsPane(
 
     fun selectedPerson(): Person? = selected
 
+    fun reload() {
+        load()
+    }
+
+    fun refreshList() {
+        refresh()
+    }
+
     private fun isSelected(p: Person): Boolean {
         val s = selected ?: return false
         return Store.key(s.number) == Store.key(p.number)

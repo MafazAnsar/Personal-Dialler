@@ -1,5 +1,7 @@
 package com.mafaz.dialer
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Rect
@@ -18,8 +20,10 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 class PanelView(
     ctx: Context,
@@ -57,6 +61,9 @@ class PanelView(
     private var downY = 0f
     private var swipeDone = false
     private var kb = 0
+    private var layer: FrameLayout? = null
+    private var hadFocus = false
+    private val inPanel = setOf("note", "history", "remind", "block", "fav")
     private var startX = 0f
     private var startY = 0f
     private var rowRef: LinearLayout? = null
@@ -240,9 +247,15 @@ class PanelView(
     private fun onIconTap(a: Act) {
         val p = pane.selectedPerson()
         if (p != null) {
-            a.fn(p)
-            if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
-            onClose()
+            if (a.id in inPanel) {
+                val loc = IntArray(2)
+                a.view.getLocationOnScreen(loc)
+                runInPanel(a.id, p, loc[0] + a.view.width / 2f, loc[1] + a.view.height / 2f)
+            } else {
+                a.fn(p)
+                if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
+                onClose()
+            }
         } else {
             if (Actions.openApp(context, a.id)) onClose()
         }
@@ -380,15 +393,18 @@ class PanelView(
             val dx = lastX - startX
             val dy = lastY - startY
             if (dx * dx + dy * dy < dp(14) * dp(14)) {
-                Actions.menu(context, p)
-                onClose()
+                openMenu(p, startX, startY)
             }
         }
         if (drop && p != null && target != null) {
             val a = acts.first { it.view === target }
-            a.fn(p)
-            if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
-            onClose()
+            if (a.id in inPanel) {
+                runInPanel(a.id, p, lastX, lastY)
+            } else {
+                a.fn(p)
+                if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
+                onClose()
+            }
         }
     }
 
@@ -399,7 +415,7 @@ class PanelView(
     }
 
     private fun swipeCheck(e: MotionEvent): Boolean {
-        if (swipeDone || dragging) return false
+        if (swipeDone || dragging || layer != null) return false
         if (sheet.visibility == View.VISIBLE && inView(sheet, downX, downY)) return false
         val dx = e.rawX - downX
         val dy = e.rawY - downY
@@ -442,9 +458,131 @@ class PanelView(
         return super.onTouchEvent(e)
     }
 
+    // Pressing Home or Recents moves window focus away: close the panel.
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (hasWindowFocus) {
+            hadFocus = true
+        } else if (hadFocus && !closing) {
+            onClose()
+        }
+    }
+
+    private fun dismissPopup() {
+        val l = layer ?: return
+        removeView(l)
+        layer = null
+    }
+
+    private fun showPopup(card: View, widthDp: Int, ax: Float, ay: Float) {
+        dismissPopup()
+        val l = FrameLayout(context)
+        l.setOnClickListener { dismissPopup() }
+        l.addView(card, FrameLayout.LayoutParams(dp(widthDp), WC))
+        addView(l, FrameLayout.LayoutParams(MP, MP))
+        layer = l
+        card.alpha = 0f
+        card.post {
+            val loc = IntArray(2)
+            getLocationOnScreen(loc)
+            val w = card.width.toFloat()
+            val h = card.height.toFloat()
+            val m = dp(8).toFloat()
+            var x = ax - loc[0] - w / 2f
+            x = x.coerceIn(m, max(m, width - w - m))
+            var y = ay - loc[1] + dp(16)
+            if (y + h > height - m) y = ay - loc[1] - h - dp(16)
+            y = y.coerceIn(m, max(m, height - h - m))
+            card.x = x
+            card.y = y
+            card.animate().alpha(1f).setDuration(120).start()
+        }
+    }
+
+    private fun openMenu(p: Person, ax: Float, ay: Float) {
+        val known = p.contactId != null || Repo.lookup(context, p.number) != null
+        val fav = Favs.isFav(context, p)
+        val blocked = Store.isBlocked(context, p.number)
+        val labels = ArrayList<String>()
+        val runs = ArrayList<() -> Unit>()
+        if (!known) {
+            labels.add("Save to contacts")
+            runs.add { Actions.addContact(context, p); onClose() }
+        }
+        labels.add(if (fav) "Remove from favourites" else "Add to favourites")
+        runs.add { Actions.favourite(context, p); dismissPopup(); pane.reload() }
+        labels.add("Call history")
+        runs.add { showHistory(p, ax, ay) }
+        labels.add("Note")
+        runs.add { showNote(p, ax, ay) }
+        labels.add("Remind me")
+        runs.add { showRemind(p, ax, ay) }
+        labels.add(if (blocked) "Unblock" else "Block")
+        runs.add { toggleBlock(p) }
+        labels.add("Copy number")
+        runs.add { copyNumber(p) }
+        showPopup(Cards.menu(context, p.name, labels, -1) { i -> runs[i]() }, 210, ax, ay)
+    }
+
+    private fun runInPanel(id: String, p: Person, ax: Float, ay: Float) {
+        when (id) {
+            "note" -> showNote(p, ax, ay)
+            "history" -> showHistory(p, ax, ay)
+            "remind" -> showRemind(p, ax, ay)
+            "block" -> toggleBlock(p)
+            "fav" -> {
+                Actions.favourite(context, p)
+                pane.reload()
+            }
+        }
+    }
+
+    private fun showHistory(p: Person, ax: Float, ay: Float) {
+        val h = History.load(context, p.number)
+        val title = p.name + "  \u00B7  " + h.count + " calls  \u00B7  " + History.fmt(h.total)
+        val rows = if (h.rows.isEmpty()) listOf("No calls found") else h.rows
+        showPopup(Cards.rows(context, title, rows), 250, ax, ay)
+    }
+
+    private fun showNote(p: Person, ax: Float, ay: Float) {
+        val card = Cards.input(
+            context, "Note for " + p.name, Store.note(context, p.number) ?: "", "Note or label",
+            { t ->
+                Store.setNote(context, p.number, t)
+                dismissPopup()
+                pane.refreshList()
+            },
+            { dismissPopup() }
+        )
+        showPopup(card, 270, ax, min(ay, realHeight() * 0.28f))
+    }
+
+    private fun showRemind(p: Person, ax: Float, ay: Float) {
+        val card = Cards.menu(context, "Remind me to call " + p.name, Reminder.labels.toList(), -1) { i ->
+            Reminder.schedule(context, p.number, p.name, Reminder.minutesFor(i))
+            Toast.makeText(context, "Reminder set", Toast.LENGTH_SHORT).show()
+            dismissPopup()
+        }
+        showPopup(card, 220, ax, ay)
+    }
+
+    private fun toggleBlock(p: Person) {
+        val now = Store.isBlocked(context, p.number)
+        Store.setBlocked(context, p.number, !now)
+        Toast.makeText(context, (if (now) "Unblocked " else "Blocked ") + p.name, Toast.LENGTH_SHORT).show()
+        dismissPopup()
+    }
+
+    private fun copyNumber(p: Person) {
+        val cm = context.getSystemService(ClipboardManager::class.java)
+        cm.setPrimaryClip(ClipData.newPlainText("number", p.number))
+        Toast.makeText(context, "Number copied", Toast.LENGTH_SHORT).show()
+        dismissPopup()
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-            onClose()
+            if (layer != null) dismissPopup() else onClose()
             return true
         }
         return super.dispatchKeyEvent(event)

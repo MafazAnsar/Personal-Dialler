@@ -154,8 +154,6 @@ object Actions {
         Toast.makeText(ctx, Favs.toggle(ctx, p), Toast.LENGTH_SHORT).show()
     }
 
-    fun menu(ctx: Context, p: Person) = quick(ctx, "menu", p)
-
     fun note(ctx: Context, p: Person) = quick(ctx, "note", p)
 
     fun block(ctx: Context, p: Person) = quick(ctx, "block", p)

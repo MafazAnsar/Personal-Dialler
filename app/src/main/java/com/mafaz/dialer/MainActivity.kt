@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.role.RoleManager
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
@@ -18,6 +19,7 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -50,12 +52,20 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this)
         scroll.addView(root)
         setContentView(scroll)
+        scroll.setBackgroundColor(Ui.solid(this))
+        window.statusBarColor = Ui.solid(this)
+        window.navigationBarColor = Ui.solid(this)
+        if (!Ui.dark(this)) {
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
 
         heading("Personal Dialler", 26f)
         text("Floating dots shortcut and a private phone app. Nothing leaves your phone.")
         addBtn("Open keypad") { startActivity(Intent(this, DialActivity::class.java)) }
         status = TextView(this)
         status.textSize = 15f
+        status.setTextColor(Ui.text(this))
         status.setPadding(0, dp(12), 0, dp(4))
         root.addView(status)
 
@@ -149,6 +159,7 @@ class MainActivity : Activity() {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
+        styleEdit(rep)
         root.addView(rep)
 
         heading("Panel actions", 18f)
@@ -189,13 +200,22 @@ class MainActivity : Activity() {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
+        styleEdit(cc)
         root.addView(cc)
 
         val tip = TextView(this)
         tip.text = "If a permission switch is greyed out: Settings > Apps > Personal Dialler > three-dot menu > Allow restricted settings."
         tip.textSize = 12f
+        tip.setTextColor(Ui.sub(this))
         tip.setPadding(0, dp(20), 0, 0)
         root.addView(tip)
+    }
+
+    private fun styleEdit(et: EditText) {
+        et.setTextColor(Ui.text(this))
+        et.setHintTextColor(Ui.sub(this))
+        et.background = Ui.round(Ui.card(this), dp(10))
+        et.setPadding(dp(12), dp(10), dp(12), dp(10))
     }
 
     private fun heading(t: String, size: Float) {
@@ -203,6 +223,7 @@ class MainActivity : Activity() {
         v.text = t
         v.textSize = size
         v.setTypeface(null, Typeface.BOLD)
+        v.setTextColor(Ui.accent(this))
         v.setPadding(0, dp(18), 0, dp(4))
         root.addView(v)
     }
@@ -210,6 +231,7 @@ class MainActivity : Activity() {
     private fun text(t: String) {
         val v = TextView(this)
         v.text = t
+        v.setTextColor(Ui.text(this))
         v.setPadding(0, dp(6), 0, dp(4))
         root.addView(v)
     }
@@ -218,8 +240,16 @@ class MainActivity : Activity() {
         val b = Button(this)
         b.text = label
         b.isAllCaps = false
+        b.setTextColor(Ui.text(this))
+        b.stateListAnimator = null
+        b.background = Ui.round(Ui.card(this), dp(12))
+        b.setPadding(dp(14), dp(12), dp(14), dp(12))
         b.setOnClickListener { onClick() }
-        root.addView(b)
+        val blp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        blp.topMargin = dp(6)
+        root.addView(b, blp)
         return b
     }
 
@@ -228,9 +258,13 @@ class MainActivity : Activity() {
         s.text = label
         s.isChecked = prefs.getBoolean(key, def)
         s.setPadding(0, dp(8), 0, dp(8))
+        s.setTextColor(Ui.text(this))
+        s.thumbTintList = ColorStateList.valueOf(Ui.accent(this))
+        s.trackTintList = ColorStateList.valueOf(Ui.withAlpha(Ui.accent(this), 0x66))
         s.setOnCheckedChangeListener { _, on ->
             prefs.edit().putBoolean(key, on).apply()
             restartService()
+            if (key == "dark" || key == "square") recreate()
         }
         root.addView(s)
     }
@@ -239,6 +273,8 @@ class MainActivity : Activity() {
         text(label)
         val sb = SeekBar(this)
         sb.max = max
+        sb.progressTintList = ColorStateList.valueOf(Ui.accent(this))
+        sb.thumbTintList = ColorStateList.valueOf(Ui.accent(this))
         sb.progress = prefs.getInt(key, def)
         sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
@@ -264,8 +300,8 @@ class MainActivity : Activity() {
             t.background = Ui.circle(Ui.accents[i])
             t.setOnClickListener {
                 prefs.edit().putInt("accent", i).apply()
-                buildSwatches()
                 restartService()
+                recreate()
             }
             val lp = LinearLayout.LayoutParams(dp(40), dp(40))
             lp.setMargins(0, dp(4), dp(10), dp(4))
@@ -332,6 +368,8 @@ class MainActivity : Activity() {
             val cb = CheckBox(this)
             cb.text = ActionDefs.title(id)
             cb.isChecked = id in on
+            cb.setTextColor(Ui.text(this))
+            cb.buttonTintList = ColorStateList.valueOf(Ui.accent(this))
             cb.setOnCheckedChangeListener { _, checked ->
                 val cur = ActionDefs.enabled(this).toMutableList()
                 if (checked) {
@@ -349,11 +387,13 @@ class MainActivity : Activity() {
             val up = TextView(this)
             up.text = "\u25B2"
             up.textSize = 20f
+            up.setTextColor(Ui.accent(this))
             up.setPadding(dp(14), dp(6), dp(14), dp(6))
             up.setOnClickListener { move(id, -1) }
             val down = TextView(this)
             down.text = "\u25BC"
             down.textSize = 20f
+            down.setTextColor(Ui.accent(this))
             down.setPadding(dp(14), dp(6), dp(14), dp(6))
             down.setOnClickListener { move(id, 1) }
             row.addView(up)

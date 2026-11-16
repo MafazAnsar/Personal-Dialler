@@ -83,6 +83,7 @@ class InCallActivity : Activity() {
     private var answerAnim: ObjectAnimator? = null
     private var pulsing = false
     private var wasRinging = false
+    private var popDlg: android.app.Dialog? = null
 
     private var muted = false
     private var showPad = false
@@ -442,13 +443,14 @@ class InCallActivity : Activity() {
         val call = CallManager.current() ?: return
         val number = CallManager.numberOf(call)
         val list = replies()
-        AlertDialog.Builder(this)
-            .setTitle("Decline and reply")
-            .setItems(list.toTypedArray()) { _, i ->
-                sendSms(number, list[i])
-                call.reject(false, null)
-            }
-            .show()
+        val card = Cards.menu(this, "Decline and reply", list, -1) { i ->
+            popDlg?.dismiss()
+            sendSms(number, list[i])
+            call.reject(false, null)
+        }
+        val d = Pop.dialog(this, card, 290) { }
+        popDlg = d
+        d.show()
     }
 
     private fun audioPicker() {
@@ -476,13 +478,14 @@ class InCallActivity : Activity() {
             render()
             return
         }
-        AlertDialog.Builder(this)
-            .setTitle("Audio output")
-            .setItems(names.toTypedArray()) { _, i ->
-                svc.setAudioRoute(routes[i])
-                h.postDelayed({ render() }, 300)
-            }
-            .show()
+        val card = Cards.menu(this, "Audio output", names, -1) { i ->
+            popDlg?.dismiss()
+            svc.setAudioRoute(routes[i])
+            h.postDelayed({ render() }, 300)
+        }
+        val d = Pop.dialog(this, card, 260) { }
+        popDlg = d
+        d.show()
     }
 
     private fun timer(call: Call): String {
@@ -627,6 +630,7 @@ class InCallActivity : Activity() {
     }
 
     override fun onDestroy() {
+        popDlg?.dismiss()
         CallManager.removeListener(listener)
         setProx(false)
         super.onDestroy()
