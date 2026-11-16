@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
+import android.graphics.drawable.Icon
 import android.graphics.drawable.GradientDrawable
 import android.database.ContentObserver
 import android.os.Build
@@ -28,6 +29,10 @@ import kotlin.math.abs
 import kotlin.math.max
 
 class OverlayService : Service() {
+    companion object {
+        const val ACTION_OPEN = "com.mafaz.dialer.OPEN_PANEL"
+    }
+
     private lateinit var wm: WindowManager
     private lateinit var prefs: SharedPreferences
     private var handle: View? = null
@@ -43,10 +48,21 @@ class OverlayService : Service() {
         startInForeground()
         Toggles.init(this)
         registerObservers()
-        if (Settings.canDrawOverlays(this)) showHandle() else stopSelf()
+        if (!Settings.canDrawOverlays(this)) {
+            stopSelf()
+        } else if (prefs.getBoolean("enabled", false)) {
+            showHandle()
+        }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null && !prefs.getBoolean("enabled", false)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_OPEN) openPanel()
+        return START_STICKY
+    }
 
     private fun registerObservers() {
         val o = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -80,14 +96,23 @@ class OverlayService : Service() {
         nm.createNotificationChannel(
             NotificationChannel("dots", "Floating dots", NotificationManager.IMPORTANCE_MIN)
         )
-        val open = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        val openIntent = Intent(this, OverlayService::class.java)
+        openIntent.action = ACTION_OPEN
+        val open = PendingIntent.getForegroundService(this, 1, openIntent, PendingIntent.FLAG_IMMUTABLE)
+        val settings = PendingIntent.getActivity(
+            this, 2, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
         val n = Notification.Builder(this, "dots")
             .setSmallIcon(android.R.drawable.sym_action_call)
             .setContentTitle("Floating dots active")
-            .setContentText("Tap to open settings")
+            .setContentText("Tap to open the dialler")
             .setContentIntent(open)
+            .addAction(
+                Notification.Action.Builder(
+                    Icon.createWithResource(this, android.R.drawable.ic_menu_preferences),
+                    "Settings", settings
+                ).build()
+            )
             .build()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -191,6 +216,7 @@ class OverlayService : Service() {
             try { wm.removeView(p) } catch (e: Exception) { }
             if (panel === p) panel = null
             handle?.visibility = View.VISIBLE
+            if (!prefs.getBoolean("enabled", false)) stopSelf()
         }
     }
 }

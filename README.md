@@ -1,4 +1,4 @@
-# Personal Dialler v0.10
+# Personal Dialler v0.11
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -33,10 +33,13 @@ Pick one of two routes:
   (the same one-time step as the earlier key change). Back up notes and blocks from the app before uninstalling.
   Keep a safe copy of the new keystore: without it you cannot publish updates that install over this one.
 
+## Opening the dialler
+The app icon, and a tap on the "Floating dots active" notification, open the dialler panel directly (so you can put the icon where your old phone app was). The panel appears over whatever is on screen and closes on Back, Home or Recents. Settings: the gear icon on the panel, the Settings button on the notification, or long-press the app icon. The first launch, before setup is finished, opens settings instead. If the floating dots are switched off, the panel still opens on demand and the app stops again when you close it.
+
 ## Panel
 - Opens on Frequent (top 4 of the last 250 calls, merged per contact), then Recent and Contacts. Swipe left/right anywhere to switch.
 - Drag a contact onto an icon. Icons and their order are chosen in the app: call, SMS, WhatsApp, Telegram, Signal, Viber, email, call history, remind me, note, block.
-- Tap a contact to select it, then tap an icon to use it. With nothing selected, tapping an icon opens that app. Dragging still works.
+- Two taps instead of dragging: tap a contact (a bar shows who is selected), then tap an icon to use it. With nothing selected, tapping an icon opens that app. Dragging still works.
 - Long-press a contact or number and let go without dragging for a compact themed menu next to it: save to contacts, add/remove favourite, call history, note, remind, block, copy. The Save to contacts and Favourite icons do the same by drag or tap.
 - Double-tap repeats the last action used with that person.
 - Search covers contacts and recents. Keypad button opens a keypad on the lower half. Sort button flips the list.

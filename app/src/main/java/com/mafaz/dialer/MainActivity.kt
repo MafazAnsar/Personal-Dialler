@@ -463,8 +463,8 @@ class MainActivity : Activity() {
                 Toast.makeText(this, "Allow display over other apps first (step 2)", Toast.LENGTH_LONG).show()
                 return
             }
-            startForegroundService(Intent(this, OverlayService::class.java))
             prefs.edit().putBoolean("enabled", true).apply()
+            startForegroundService(Intent(this, OverlayService::class.java))
         }
         refresh()
     }

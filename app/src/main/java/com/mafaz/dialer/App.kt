@@ -2,6 +2,10 @@ package com.mafaz.dialer
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -11,6 +15,28 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         Store.init(this)
+        try {
+            val sm = getSystemService(ShortcutManager::class.java)
+            val settings = Intent(this, MainActivity::class.java)
+            settings.action = Intent.ACTION_VIEW
+            val keypad = Intent(this, DialActivity::class.java)
+            keypad.action = Intent.ACTION_VIEW
+            val s1 = ShortcutInfo.Builder(this, "settings")
+                .setShortLabel("Settings")
+                .setLongLabel("Dialler settings")
+                .setIcon(Icon.createWithResource(this, android.R.drawable.ic_menu_preferences))
+                .setIntent(settings)
+                .build()
+            val s2 = ShortcutInfo.Builder(this, "keypad")
+                .setShortLabel("Keypad")
+                .setLongLabel("Open the keypad")
+                .setIcon(Icon.createWithResource(this, android.R.drawable.sym_action_call))
+                .setIntent(keypad)
+                .build()
+            sm.dynamicShortcuts = listOf(s1, s2)
+        } catch (e: Exception) {
+            android.util.Log.w("App", "could not publish shortcuts", e)
+        }
         val old = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             try {

@@ -34,7 +34,8 @@ class ContactsPane(
     ctx: Context,
     private val host: DragHost,
     private val onDone: () -> Unit,
-    private val onKeypad: () -> Unit
+    private val onKeypad: () -> Unit,
+    private val onSelect: (Person?) -> Unit = {}
 ) : LinearLayout(ctx) {
 
     private class Holder(val row: View, val av: AvatarView, val name: TextView, val sub: TextView)
@@ -57,6 +58,9 @@ class ContactsPane(
     private var selected: Person? = null
 
     private val search = EditText(ctx)
+    private val selBar = LinearLayout(ctx)
+    private val selAv = AvatarView(ctx)
+    private val selText = TextView(ctx)
     private val strip = LinearLayout(ctx)
     private val stripScroll = HorizontalScrollView(ctx)
     private val tabs = arrayOf(TextView(ctx), TextView(ctx), TextView(ctx))
@@ -109,6 +113,29 @@ class ContactsPane(
         val sbLp = LinearLayout.LayoutParams(dp(40), dp(40))
         sbLp.leftMargin = dp(6)
         head.addView(sb, sbLp)
+
+        selBar.orientation = LinearLayout.HORIZONTAL
+        selBar.gravity = Gravity.CENTER_VERTICAL
+        selBar.setPadding(dp(8), dp(4), dp(4), dp(4))
+        selBar.background = Ui.round(Ui.withAlpha(Ui.accent(ctx), 0x33), dp(10))
+        selBar.visibility = View.GONE
+        selBar.addView(selAv, LinearLayout.LayoutParams(dp(28), dp(28)))
+        selText.textSize = 13f
+        selText.setTextColor(Ui.text(ctx))
+        selText.setSingleLine()
+        val stLp = LinearLayout.LayoutParams(0, WC, 1f)
+        stLp.leftMargin = dp(8)
+        selBar.addView(selText, stLp)
+        val clear = TextView(ctx)
+        clear.text = "\u2715"
+        clear.textSize = 16f
+        clear.setTextColor(Ui.accent(ctx))
+        clear.setPadding(dp(10), dp(4), dp(10), dp(4))
+        clear.setOnClickListener { clearSelection() }
+        selBar.addView(clear)
+        val sbLp2 = LinearLayout.LayoutParams(MP, WC)
+        sbLp2.bottomMargin = dp(6)
+        addView(selBar, sbLp2)
 
         stripScroll.isHorizontalScrollBarEnabled = false
         strip.orientation = LinearLayout.VERTICAL
@@ -175,8 +202,20 @@ class ContactsPane(
 
     private fun select(p: Person) {
         selected = p
+        selAv.bind(p.name, p.contactId)
+        selText.text = p.name + "  \u00B7  now tap an icon"
+        selBar.visibility = View.VISIBLE
         adapter.notifyDataSetChanged()
         buildStrip()
+        onSelect(p)
+    }
+
+    private fun clearSelection() {
+        selected = null
+        selBar.visibility = View.GONE
+        adapter.notifyDataSetChanged()
+        buildStrip()
+        onSelect(null)
     }
 
     fun setQuery(q: String) {
@@ -254,9 +293,12 @@ class ContactsPane(
         }
         h.name.textSize = 16f * fs
         h.sub.textSize = 12f * fs
-        h.row.setBackgroundColor(if (isSelected(p)) Ui.withAlpha(Ui.accent(c), 0x44) else 0)
+        h.row.setBackgroundColor(if (isSelected(p)) Ui.withAlpha(Ui.accent(c), 0x55) else 0)
         h.name.text = p.name
-        h.name.setTextColor(if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt() else Ui.text(c))
+        h.name.setTextColor(
+            if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt()
+            else if (isSelected(p)) Ui.accent(c) else Ui.text(c)
+        )
         val sb = StringBuilder()
         if (p.count > 0) {
             sb.append("\u2605 ").append(p.count).append(" calls  ")

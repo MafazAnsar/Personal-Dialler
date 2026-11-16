@@ -42,7 +42,7 @@ class PanelView(
     private val actionsScroll = ScrollView(ctx)
     private val holder = FrameLayout(ctx)
     private val sheet = FrameLayout(ctx)
-    private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() })
+    private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() }, { p -> onSelection(p) })
     private val keypad = KeypadView(
         ctx,
         showCall = true,
@@ -253,6 +253,18 @@ class PanelView(
         v.setOnClickListener { onIconTap(act) }
     }
 
+    private fun onSelection(p: Person?) {
+        for (a in acts) {
+            val v = a.view
+            v.alpha = if (p != null) 1f else 0.92f
+            if (p != null) {
+                v.animate().scaleX(1.12f).scaleY(1.12f).setDuration(110).withEndAction {
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()
+                }.start()
+            }
+        }
+    }
+
     private fun onIconTap(a: Act) {
         val p = pane.selectedPerson()
         if (p != null) {
@@ -312,6 +324,11 @@ class PanelView(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         requestApplyInsets()
+        val cfg = Ui.cfg(context)
+        if (!cfg.getBoolean("tip_select", false)) {
+            cfg.edit().putBoolean("tip_select", true).apply()
+            Toast.makeText(context, "Tip: tap a contact, then tap an icon. Dragging works too.", Toast.LENGTH_LONG).show()
+        }
         alpha = 0f
         animate().alpha(1f).setDuration(180).start()
         val w = dp(320).toFloat()
