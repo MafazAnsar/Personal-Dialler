@@ -1,4 +1,4 @@
-# Personal Dialler v0.11
+# Personal Dialler v0.13
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -39,7 +39,8 @@ The app icon, and a tap on the "Floating dots active" notification, open the dia
 ## Panel
 - Opens on Frequent (top 4 of the last 250 calls, merged per contact), then Recent and Contacts. Swipe left/right anywhere to switch.
 - Drag a contact onto an icon. Icons and their order are chosen in the app: call, SMS, WhatsApp, Telegram, Signal, Viber, email, call history, remind me, note, block.
-- Two taps instead of dragging: tap a contact (a bar shows who is selected), then tap an icon to use it. With nothing selected, tapping an icon opens that app. Dragging still works.
+- Favourites lead the Contacts tab (marked with a star); there is no favourites strip any more. A contact with several numbers has one row per number, with its type (Mobile, Work...), so you always choose the number yourself. Frequent also ranks each number separately.
+- No long drag needed: tap a contact and a small tray of action icons opens right next to it, then tap one ("..." in the tray opens the longer menu). Or press and drag a contact: the same tray opens under your finger, so a short slide to an icon is enough. The icon column on the side still works for dragging, or tap a selected contact and then an icon there. With nothing selected, tapping an icon opens that app. Dragging still works.
 - Long-press a contact or number and let go without dragging for a compact themed menu next to it: save to contacts, add/remove favourite, call history, note, remind, block, copy. The Save to contacts and Favourite icons do the same by drag or tap.
 - Double-tap repeats the last action used with that person.
 - Search covers contacts and recents. Keypad button opens a keypad on the lower half. Sort button flips the list.
@@ -54,6 +55,14 @@ The app icon, and a tap on the "Floating dots active" notification, open the dia
 - Decline with a quick reply SMS (edit the replies in the app). Volume key silences the ringer.
 - Block list, plus optional rules for numbers not in contacts and hidden numbers.
 - Popup after each call: call back, message, note, block, remind me later.
+
+## Installing updates ("App not installed")
+Android only installs an update over an existing app when both are signed with the same key and the new
+version code is higher. If you ever change the keystore secret, the first build with the new key cannot be
+installed over the old app: back up from the app, uninstall once, then install. After that every build
+signed with that key installs over the previous one. Settings > About shows the version and a short
+fingerprint of the signing key, so you can compare two builds: if the fingerprints differ, they cannot
+update each other.
 
 ## Matching numbers
 Notes, blocks, favourites and last actions identify a person by the last N digits of the number (N is 9 by default and can be set from 7 to 12 in the app, under the country code). Numbers are normalised with Android's PhoneNumberUtils first, so `+94 77 555 1234`, `077-5551234` and `(077) 555 1234` are the same person.
