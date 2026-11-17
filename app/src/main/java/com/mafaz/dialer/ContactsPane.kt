@@ -28,6 +28,7 @@ interface DragHost {
     fun beginDrag(p: Person, x: Float, y: Float)
     fun dragTo(x: Float, y: Float)
     fun endDrag(drop: Boolean)
+    fun onRowTapped(p: Person, row: View)
 }
 
 class ContactsPane(
@@ -47,6 +48,8 @@ class ContactsPane(
     private var frequent: List<Person> = emptyList()
     private var all: List<Person> = emptyList()
     private var favs: List<Person> = emptyList()
+    private var favKeys: Set<String> = emptySet()
+    private var favIds: Set<Long> = emptySet()
     private var shown: List<Person> = emptyList()
     private var tab = 0
     private var query = ""
@@ -61,8 +64,6 @@ class ContactsPane(
     private val selBar = LinearLayout(ctx)
     private val selAv = AvatarView(ctx)
     private val selText = TextView(ctx)
-    private val strip = LinearLayout(ctx)
-    private val stripScroll = HorizontalScrollView(ctx)
     private val tabs = arrayOf(TextView(ctx), TextView(ctx), TextView(ctx))
     private val list = ListView(ctx)
     private val empty = TextView(ctx)
@@ -137,10 +138,6 @@ class ContactsPane(
         sbLp2.bottomMargin = dp(6)
         addView(selBar, sbLp2)
 
-        stripScroll.isHorizontalScrollBarEnabled = false
-        strip.orientation = LinearLayout.VERTICAL
-        stripScroll.addView(strip)
-        addView(stripScroll, LinearLayout.LayoutParams(MP, WC))
 
         val tabRow = LinearLayout(ctx)
         val labels = arrayOf("Frequent", "Recent", "Contacts")
@@ -162,8 +159,8 @@ class ContactsPane(
         list.setSelector(ColorDrawable(0x33FFFFFF))
         list.adapter = adapter
         list.emptyView = empty
-        list.setOnItemClickListener { _, _, pos, _ ->
-            if (pos in shown.indices) tapped(shown[pos], "l" + pos)
+        list.setOnItemClickListener { _, v, pos, _ ->
+            if (pos in shown.indices) tapped(shown[pos], "l" + pos, v)
         }
         list.setOnItemLongClickListener { _, _, pos, _ ->
             if (pos in shown.indices) {
@@ -206,7 +203,6 @@ class ContactsPane(
         selText.text = p.name + "  \u00B7  now tap an icon"
         selBar.visibility = View.VISIBLE
         adapter.notifyDataSetChanged()
-        buildStrip()
         onSelect(p)
     }
 
@@ -214,7 +210,6 @@ class ContactsPane(
         selected = null
         selBar.visibility = View.GONE
         adapter.notifyDataSetChanged()
-        buildStrip()
         onSelect(null)
     }
 
@@ -228,7 +223,7 @@ class ContactsPane(
         refresh()
     }
 
-    private fun tapped(p: Person, tag: String) {
+    private fun tapped(p: Person, tag: String, view: View?) {
         val now = SystemClock.uptimeMillis()
         if (tag == lastTapKey && now - lastTapTime < 350) {
             lastTapKey = ""
@@ -237,7 +232,32 @@ class ContactsPane(
             lastTapKey = tag
             lastTapTime = now
             select(p)
+            if (view != null) host.onRowTapped(p, view)
         }
+    }
+
+    // A quick second tap that lands on the action bubble still counts as a double tap.
+    fun recentTap(): Boolean = SystemClock.uptimeMillis() - lastTapTime < 350
+
+    fun doubleTapSelected() {
+        val s = selected ?: return
+        doubleTap(s)
+    }
+
+    private fun isFav(p: Person): Boolean {
+        val id = p.contactId
+        return favKeys.contains(Store.key(p.number)) || (id != null && favIds.contains(id))
+    }
+
+    // Favourites first, then every other contact.
+    private fun favFirst(): List<Person> {
+        if (favs.isEmpty()) return all
+        val out = ArrayList<Person>(favs)
+        for (p in all) {
+            if (favKeys.contains(Store.key(p.number))) continue
+            out.add(p)
+        }
+        return out
     }
 
     private fun doubleTap(p: Person) {
@@ -294,7 +314,7 @@ class ContactsPane(
         h.name.textSize = 16f * fs
         h.sub.textSize = 12f * fs
         h.row.setBackgroundColor(if (isSelected(p)) Ui.withAlpha(Ui.accent(c), 0x55) else 0)
-        h.name.text = p.name
+        h.name.text = (if (isFav(p)) "\u2605 " else "") + p.name
         h.name.setTextColor(
             if (p.callType == CallLog.Calls.MISSED_TYPE) 0xFFE53935.toInt()
             else if (isSelected(p)) Ui.accent(c) else Ui.text(c)
@@ -308,6 +328,7 @@ class ContactsPane(
             if (p.duration > 0) sb.append("  ").append(fmtDur(p.duration))
             if (p.name != p.number) sb.append("  ").append(p.number)
         } else {
+            if (p.label.isNotEmpty()) sb.append(p.label).append("  \u00B7  ")
             sb.append(p.number)
         }
         val note = Store.note(c, p.number)
@@ -334,44 +355,6 @@ class ContactsPane(
         return m.toString() + ":" + (if (r < 10) "0" else "") + r
     }
 
-    private fun favItem(p: Person): View {
-        val item = LinearLayout(context)
-        item.orientation = LinearLayout.VERTICAL
-        item.gravity = Gravity.CENTER_HORIZONTAL
-        item.setPadding(dp(3), dp(3), dp(3), dp(3))
-        if (isSelected(p)) item.background = Ui.round(Ui.withAlpha(Ui.accent(context), 0x44), dp(10))
-        val av = AvatarView(context)
-        av.bind(p.name, p.contactId)
-        item.addView(av, LinearLayout.LayoutParams(dp(44), dp(44)))
-        val nm = TextView(context)
-        nm.text = p.name.substringBefore(' ')
-        nm.textSize = 10f
-        nm.setSingleLine()
-        nm.gravity = Gravity.CENTER
-        nm.maxWidth = dp(54)
-        nm.setTextColor(Ui.sub(context))
-        item.addView(nm)
-        item.setOnClickListener { tapped(p, "f" + p.number) }
-        item.setOnLongClickListener {
-            stripScroll.requestDisallowInterceptTouchEvent(true)
-            host.beginDrag(p, lastX, lastY)
-            true
-        }
-        item.setOnTouchListener { _, e -> track(e) }
-        return item
-    }
-
-    private fun buildStrip() {
-        strip.removeAllViews()
-        val r1 = LinearLayout(context)
-        val r2 = LinearLayout(context)
-        for ((i, p) in favs.withIndex()) {
-            (if (i % 2 == 0) r1 else r2).addView(favItem(p))
-        }
-        strip.addView(r1)
-        strip.addView(r2)
-    }
-
     private fun matches(p: Person, q: String): Boolean {
         val ql = q.trim().lowercase()
         if (ql.isEmpty()) return true
@@ -393,6 +376,9 @@ class ContactsPane(
         for (p in all) {
             if (matches(p, q) && seen.add(Store.key(p.number))) out.add(p)
         }
+        for (p in favs) {
+            if (matches(p, q) && seen.add(Store.key(p.number))) out.add(p)
+        }
         return out
     }
 
@@ -402,13 +388,12 @@ class ContactsPane(
             tabs[i].setTextColor(if (i == tab) accent else Ui.sub(context))
             tabs[i].setTypeface(null, Typeface.NORMAL)
         }
-        stripScroll.visibility = if (favs.isEmpty()) View.GONE else View.VISIBLE
         val q = query.trim()
         var data = if (q.isEmpty()) {
             when (tab) {
                 0 -> frequent
                 1 -> recents
-                else -> all
+                else -> favFirst()
             }
         } else searchAll(q)
         if (reversed) data = data.reversed()
@@ -425,7 +410,7 @@ class ContactsPane(
         val counts = HashMap<String, Int>()
         val first = LinkedHashMap<String, Person>()
         for (p in src) {
-            val k = if (p.contactId != null) "c" + p.contactId else Store.key(p.number).ifEmpty { p.number }
+            val k = Store.key(p.number).ifEmpty { p.number }
             counts[k] = (counts[k] ?: 0) + 1
             if (!first.containsKey(k)) first[k] = p
         }
@@ -453,15 +438,8 @@ class ContactsPane(
         listFrame.animate().translationX(0f).alpha(1f).setDuration(160).start()
     }
 
-    fun stripCanScroll(x: Float, y: Float, dx: Float): Boolean {
-        if (stripScroll.visibility != View.VISIBLE) return false
-        val l = IntArray(2)
-        stripScroll.getLocationOnScreen(l)
-        val inside = x >= l[0] && x <= l[0] + stripScroll.width &&
-            y >= l[1] && y <= l[1] + stripScroll.height
-        if (!inside) return false
-        return stripScroll.canScrollHorizontally(if (dx < 0) 1 else -1)
-    }
+    // The favourites strip is gone (favourites now lead the Contacts tab); kept so swipes never defer to it.
+    fun stripCanScroll(x: Float, y: Float, dx: Float): Boolean = false
 
     private fun applyData(r: List<Person>, a: List<Person>, f: List<Person>) {
         recents = r
@@ -469,7 +447,8 @@ class ContactsPane(
         all = a
         favs = f
         if (r.isEmpty() && a.isNotEmpty()) tab = 2
-        buildStrip()
+        favKeys = f.map { Store.key(it.number) }.toSet()
+        favIds = f.mapNotNull { it.contactId }.toSet()
         refresh()
     }
 

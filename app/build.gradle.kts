@@ -28,8 +28,8 @@ android {
         applicationId = "com.mafaz.dialer"
         minSdk = 29
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.11"
+        versionCode = 15
+        versionName = "0.14"
     }
     buildTypes {
         release { isMinifyEnabled = false }

@@ -21,7 +21,8 @@ data class Person(
     val callType: Int = 0,
     val date: Long = 0L,
     val duration: Long = 0L,
-    val count: Int = 0
+    val count: Int = 0,
+    val label: String = ""
 )
 
 object T9 {
@@ -56,19 +57,28 @@ object Repo {
     private val P_ID = ContactsContract.CommonDataKinds.Phone.CONTACT_ID
     private val P_NAME = ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
     private val P_NUM = ContactsContract.CommonDataKinds.Phone.NUMBER
+    private val P_TYPE = ContactsContract.CommonDataKinds.Phone.TYPE
+    private val P_LABEL = ContactsContract.CommonDataKinds.Phone.LABEL
+
+    private fun typeLabel(ctx: Context, type: Int, custom: String?): String = try {
+        ContactsContract.CommonDataKinds.Phone.getTypeLabel(ctx.resources, type, custom).toString()
+    } catch (e: Exception) {
+        ""
+    }
     private const val P_SORT = ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC"
 
     fun contacts(ctx: Context): List<Person> {
         if (!has(ctx, Manifest.permission.READ_CONTACTS)) return emptyList()
         val out = ArrayList<Person>()
         val seen = HashSet<String>()
-        ctx.contentResolver.query(PHONE, arrayOf(P_ID, P_NAME, P_NUM), null, null, P_SORT)?.use { c ->
+        val proj = arrayOf(P_ID, P_NAME, P_NUM, P_TYPE, P_LABEL)
+        ctx.contentResolver.query(PHONE, proj, null, null, P_SORT)?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
                 val name = c.getString(1) ?: continue
                 val num = c.getString(2) ?: continue
                 val key = id.toString() + "|" + Store.key(num)
-                if (seen.add(key)) out.add(Person(name, num, id))
+                if (seen.add(key)) out.add(Person(name, num, id, 0, 0L, 0L, 0, typeLabel(ctx, c.getInt(3), c.getString(4))))
             }
         }
         return out
@@ -77,20 +87,24 @@ object Repo {
     private fun systemFavourites(ctx: Context, limit: Int): List<Person> {
         if (!has(ctx, Manifest.permission.READ_CONTACTS)) return emptyList()
         val out = ArrayList<Person>()
-        val seen = HashSet<Long>()
+        val seen = HashSet<String>()
         val sel = ContactsContract.CommonDataKinds.Phone.STARRED + "=1"
-        ctx.contentResolver.query(PHONE, arrayOf(P_ID, P_NAME, P_NUM), sel, null, P_SORT)?.use { c ->
+        val proj = arrayOf(P_ID, P_NAME, P_NUM, P_TYPE, P_LABEL)
+        ctx.contentResolver.query(PHONE, proj, sel, null, P_SORT)?.use { c ->
             while (c.moveToNext() && out.size < limit) {
                 val id = c.getLong(0)
                 val name = c.getString(1) ?: continue
                 val num = c.getString(2) ?: continue
-                if (seen.add(id)) out.add(Person(name, num, id))
+                // every number of a starred contact is listed, so none is picked for you
+                if (seen.add(id.toString() + "|" + Store.key(num))) {
+                    out.add(Person(name, num, id, 0, 0L, 0L, 0, typeLabel(ctx, c.getInt(3), c.getString(4))))
+                }
             }
         }
         return out
     }
 
-    fun favourites(ctx: Context, limit: Int = 24): List<Person> {
+    fun favourites(ctx: Context, limit: Int = 80): List<Person> {
         val out = ArrayList<Person>(systemFavourites(ctx, limit))
         val keys = HashSet<String>()
         for (p in out) keys.add(Store.key(p.number))
@@ -126,7 +140,7 @@ object Repo {
                 val match = known[Store.key(num)]
                 val id = idFromLookupUri(c.getString(5)) ?: match?.contactId
                 val name = if (!cached.isNullOrBlank()) cached else (match?.name ?: num)
-                out.add(Person(name, num, id, c.getInt(2), c.getLong(3), c.getLong(4)))
+                out.add(Person(name, num, id, c.getInt(2), c.getLong(3), c.getLong(4), 0, match?.label ?: ""))
             }
         }
         return out

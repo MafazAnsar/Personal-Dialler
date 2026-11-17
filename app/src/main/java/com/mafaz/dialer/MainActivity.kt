@@ -206,6 +206,9 @@ class MainActivity : Activity() {
         tip.setTextColor(Ui.sub(this))
         tip.setPadding(0, dp(20), 0, 0)
         root.addView(tip)
+
+        heading("About", 18f)
+        text(aboutText())
     }
 
     private fun numLenControl() {
@@ -344,6 +347,24 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Already set", Toast.LENGTH_SHORT).show()
         } else {
             startActivityForResult(rm.createRequestRoleIntent(role), 10)
+        }
+    }
+
+    // Shows which key this build is signed with: a new key means Android will refuse to update over the old app.
+    private fun aboutText(): String {
+        return try {
+            val pi = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            val sig = pi.signingInfo?.apkContentsSigners?.firstOrNull()
+            val fp = if (sig != null) {
+                val d = java.security.MessageDigest.getInstance("SHA-256").digest(sig.toByteArray())
+                d.joinToString(":") { "%02X".format(it) }.take(23)
+            } else {
+                "unknown"
+            }
+            "Version " + pi.versionName + " (" + pi.longVersionCode + ")\nSigning key " + fp
+        } catch (e: Exception) {
+            AppLog.w(this, "MainActivity.about", e)
+            "Version unknown"
         }
     }
 

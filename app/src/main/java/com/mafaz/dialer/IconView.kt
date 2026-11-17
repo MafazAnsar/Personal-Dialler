@@ -202,6 +202,10 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
                 path.close()
                 c.drawPath(path, fg)
             }
+            "more" -> {
+                fill()
+                for (x in intArrayOf(28, 50, 72)) c.drawCircle(x.toFloat(), 50f, 7f, fg)
+            }
             "call" -> drawCall(c, 0f)
             "hang" -> drawCall(c, 135f)
             "mic", "micoff" -> {

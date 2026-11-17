@@ -64,6 +64,9 @@ class PanelView(
     private var topPad = Ui.dp(ctx, 40)
     private var botPad = Ui.dp(ctx, 24)
     private var layer: FrameLayout? = null
+    private var layerIsBubble = false
+    private var dragBubble: View? = null
+    private val bubbleActs = ArrayList<Act>()
     private var hadFocus = false
     private val inPanel = setOf("note", "history", "remind", "block", "fav")
     private var startX = 0f
@@ -265,18 +268,22 @@ class PanelView(
         }
     }
 
+    private fun performAction(a: Act, p: Person, ax: Float, ay: Float) {
+        if (a.id in inPanel) {
+            runInPanel(a.id, p, ax, ay)
+        } else {
+            a.fn(p)
+            if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
+            onClose()
+        }
+    }
+
     private fun onIconTap(a: Act) {
         val p = pane.selectedPerson()
         if (p != null) {
-            if (a.id in inPanel) {
-                val loc = IntArray(2)
-                a.view.getLocationOnScreen(loc)
-                runInPanel(a.id, p, loc[0] + a.view.width / 2f, loc[1] + a.view.height / 2f)
-            } else {
-                a.fn(p)
-                if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
-                onClose()
-            }
+            val loc = IntArray(2)
+            a.view.getLocationOnScreen(loc)
+            performAction(a, p, loc[0] + a.view.width / 2f, loc[1] + a.view.height / 2f)
         } else {
             if (Actions.openApp(context, a.id)) onClose()
         }
@@ -378,11 +385,17 @@ class PanelView(
         getLocationOnScreen(loc)
         c.x = lastX - loc[0] - c.width / 2f
         c.y = lastY - loc[1] - c.height - dp(24)
+        if (dragBubble == null && layer == null) {
+            val mx = lastX - startX
+            val my = lastY - startY
+            if (mx * mx + my * my > dp(14) * dp(14)) showDragBubble()
+        }
         var over: IconView? = null
         val r = Rect()
         val l = IntArray(2)
-        for (a in acts) {
+        for (a in acts + bubbleActs) {
             val v = a.view
+            if (!v.isAttachedToWindow) continue
             v.getLocationOnScreen(l)
             r.set(l[0], l[1], l[0] + v.width, l[1] + v.height)
             if (r.contains(lastX.toInt(), lastY.toInt())) over = v
@@ -411,10 +424,12 @@ class PanelView(
             c.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(140)
                 .withEndAction { removeView(c) }.start()
         }
-        for (a in acts) {
+        for (a in acts + bubbleActs) {
             a.view.hot = false
             a.view.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
         }
+        val hit = if (target != null) (acts + bubbleActs).firstOrNull { it.view === target } else null
+        removeDragBubble()
         if (drop && p != null && target == null) {
             val dx = lastX - startX
             val dy = lastY - startY
@@ -422,15 +437,8 @@ class PanelView(
                 openMenu(p, startX, startY)
             }
         }
-        if (drop && p != null && target != null) {
-            val a = acts.first { it.view === target }
-            if (a.id in inPanel) {
-                runInPanel(a.id, p, lastX, lastY)
-            } else {
-                a.fn(p)
-                if (a.id in repeatable) Store.setLastAction(context, p.number, a.id)
-                onClose()
-            }
+        if (drop && p != null && hit != null) {
+            performAction(hit, p, lastX, lastY)
         }
     }
 
@@ -498,12 +506,117 @@ class PanelView(
         val l = layer ?: return
         removeView(l)
         layer = null
+        layerIsBubble = false
+        if (dragBubble == null) bubbleActs.clear()
+    }
+
+    private fun onLayerClick() {
+        if (layerIsBubble && pane.recentTap()) {
+            dismissPopup()
+            pane.doubleTapSelected()
+        } else {
+            dismissPopup()
+        }
+    }
+
+    private fun placeBubble(card: View, cx: Float, topY: Float, bottomY: Float) {
+        val loc = IntArray(2)
+        getLocationOnScreen(loc)
+        val w = card.width.toFloat()
+        val h = card.height.toFloat()
+        val m = dp(8).toFloat()
+        var x = cx - loc[0] - w / 2f
+        x = x.coerceIn(m, max(m, width - w - m))
+        var y = bottomY - loc[1] + dp(6)
+        if (y + h > height - m) y = topY - loc[1] - h - dp(6)
+        y = y.coerceIn(m, max(m, height - h - m))
+        card.x = x
+        card.y = y
+    }
+
+    // A compact tray of the action icons, so no long drag across the panel is needed.
+    private fun buildBubble(p: Person, inDrag: Boolean): LinearLayout {
+        bubbleActs.clear()
+        val card = Cards.card(context)
+        card.setPadding(dp(5), dp(5), dp(5), dp(5))
+        val ids = ActionDefs.enabled(context) + (if (inDrag) emptyList<String>() else listOf("more"))
+        var row: LinearLayout? = null
+        var n = 0
+        for (id in ids) {
+            if (n % 5 == 0) {
+                val r = LinearLayout(context)
+                r.gravity = Gravity.CENTER
+                card.addView(r, LinearLayout.LayoutParams(WC, WC))
+                row = r
+            }
+            n++
+            val v = IconView(context, id)
+            val lp = LinearLayout.LayoutParams(dp(42), dp(42))
+            lp.setMargins(dp(3), dp(3), dp(3), dp(3))
+            row?.addView(v, lp)
+            if (id == "more") {
+                v.setOnClickListener {
+                    val loc = IntArray(2)
+                    v.getLocationOnScreen(loc)
+                    dismissPopup()
+                    openMenu(p, loc[0] + v.width / 2f, loc[1] + v.height / 2f)
+                }
+            } else {
+                val act = Act(v, id) { q -> Actions.run(context, id, q) }
+                bubbleActs.add(act)
+                if (!inDrag) {
+                    v.setOnClickListener {
+                        val loc = IntArray(2)
+                        v.getLocationOnScreen(loc)
+                        performAction(act, p, loc[0] + v.width / 2f, loc[1] + v.height / 2f)
+                    }
+                }
+            }
+        }
+        return card
+    }
+
+    override fun onRowTapped(p: Person, row: View) {
+        val card = buildBubble(p, false)
+        dismissPopup()
+        val l = FrameLayout(context)
+        l.setOnClickListener { onLayerClick() }
+        l.addView(card, FrameLayout.LayoutParams(WC, WC))
+        addView(l, FrameLayout.LayoutParams(MP, MP))
+        layer = l
+        layerIsBubble = true
+        card.alpha = 0f
+        card.post {
+            val loc = IntArray(2)
+            row.getLocationOnScreen(loc)
+            placeBubble(card, loc[0] + row.width / 2f, loc[1].toFloat(), (loc[1] + row.height).toFloat())
+            card.animate().alpha(1f).setDuration(100).start()
+        }
+    }
+
+    private fun showDragBubble() {
+        val p = dragPerson ?: return
+        val card = buildBubble(p, true)
+        dragBubble = card
+        addView(card, FrameLayout.LayoutParams(WC, WC))
+        card.alpha = 0f
+        card.post {
+            placeBubble(card, startX, startY - dp(60), startY + dp(10))
+            card.animate().alpha(1f).setDuration(100).start()
+        }
+    }
+
+    private fun removeDragBubble() {
+        val b = dragBubble ?: return
+        removeView(b)
+        dragBubble = null
+        bubbleActs.clear()
     }
 
     private fun showPopup(card: View, widthDp: Int, ax: Float, ay: Float) {
         dismissPopup()
         val l = FrameLayout(context)
-        l.setOnClickListener { dismissPopup() }
+        l.setOnClickListener { onLayerClick() }
         l.addView(card, FrameLayout.LayoutParams(dp(widthDp), WC))
         addView(l, FrameLayout.LayoutParams(MP, MP))
         layer = l
@@ -558,6 +671,7 @@ class PanelView(
             "block" -> toggleBlock(p)
             "fav" -> {
                 Actions.favourite(context, p)
+                dismissPopup()
                 pane.reload()
             }
         }
