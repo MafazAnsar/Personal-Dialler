@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 
 // The app icon. It stays invisible while Android plays its own launch animation, then opens the
 // dialler panel once that has finished, so the two animations never fight each other.
@@ -30,20 +29,12 @@ class LaunchActivity : Activity() {
     private fun go() {
         if (done) return
         done = true
-        val ready = Settings.canDrawOverlays(this) &&
-            checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED &&
+        val ready = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
-        if (ready) {
-            try {
-                val i = Intent(this, OverlayService::class.java)
-                i.action = OverlayService.ACTION_OPEN
-                startForegroundService(i)
-            } catch (e: Exception) {
-                AppLog.w(this, "LaunchActivity", e)
-                startActivity(Intent(this, MainActivity::class.java))
-            }
-        } else {
-            startActivity(Intent(this, MainActivity::class.java))
+        try {
+            startActivity(Intent(this, if (ready) PanelActivity::class.java else MainActivity::class.java))
+        } catch (e: Exception) {
+            AppLog.w(this, "LaunchActivity", e)
         }
         // Let the panel appear first, then drop this invisible window without any animation.
         h.postDelayed({

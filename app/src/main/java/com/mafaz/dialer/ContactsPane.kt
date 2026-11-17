@@ -429,9 +429,7 @@ class ContactsPane(
     }
 
     fun switchTab(dir: Int) {
-        val n = tab + dir
-        if (n < 0 || n > 2) return
-        tab = n
+        tab = (tab + dir + 3) % 3
         refresh()
         listFrame.translationX = (dir * dp(48)).toFloat()
         listFrame.alpha = 0.3f

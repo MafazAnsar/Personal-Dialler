@@ -49,6 +49,15 @@
         </activity>
 
         <activity
+            android:name=".PanelActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/PanelTheme" />
+
+        <activity
             android:name=".MainActivity"
             android:label="Dialler settings"
             android:exported="true" />

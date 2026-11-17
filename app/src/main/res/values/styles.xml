@@ -8,6 +8,13 @@
         <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
     </style>
 
+    <!-- The dialler panel screen: transparent, no window animations of its own. -->
+    <style name="PanelTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@style/NoWindowAnimation</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
     <style name="NoWindowAnimation" parent="@android:style/Animation">
         <item name="android:activityOpenEnterAnimation">@null</item>
         <item name="android:activityOpenExitAnimation">@null</item>

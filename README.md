@@ -1,4 +1,4 @@
-# Personal Dialler v0.14
+# Personal Dialler v0.15
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -34,11 +34,12 @@ Pick one of two routes:
   Keep a safe copy of the new keystore: without it you cannot publish updates that install over this one.
 
 ## Opening the dialler
-The app icon, and a tap on the "Floating dots active" notification, open the dialler panel directly (so you can put the icon where your old phone app was). The panel appears over whatever is on screen and closes on Back, Home or Recents. Settings: the gear icon on the panel, the Settings button on the notification, or long-press the app icon. The first launch, before setup is finished, opens settings instead. If the floating dots are switched off, the panel still opens on demand and the app stops again when you close it.
+The app icon, and a tap on the "Floating dots active" notification, open the dialler panel directly (so you can put the icon where your old phone app was). The panel is its own transparent screen over whatever you were doing, and closes on Back, Home or Recents. Settings: the gear icon on the panel, the Settings button on the notification, or long-press the app icon. The first launch, before setup is finished, opens settings instead. If the floating dots are switched off, the panel still opens on demand and the app stops again when you close it.
 
 Android's own icon-zoom animation belongs to the launcher and cannot be switched off by an app. The icon's launch window is therefore invisible and has no animations of its own, and the panel waits until the zoom has finished before it appears. If you want no zoom at all, set Developer options > Transition animation scale to off (this affects every app).
 
 ## Panel
+- Swiping is endless: past Contacts you arrive back at Frequent, and the other way round.
 - Opens on Frequent (top 4 of the last 250 calls, merged per contact), then Recent and Contacts. Swipe left/right anywhere to switch.
 - Drag a contact onto an icon. Icons and their order are chosen in the app: call, SMS, WhatsApp, Telegram, Signal, Viber, email, call history, remind me, note, block.
 - Favourites lead the Contacts tab (marked with a star); there is no favourites strip any more. A contact with several numbers has one row per number, with its type (Mobile, Work...), so you always choose the number yourself. Frequent also ranks each number separately.

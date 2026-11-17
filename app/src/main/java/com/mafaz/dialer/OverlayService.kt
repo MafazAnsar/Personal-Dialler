@@ -31,18 +31,27 @@ import kotlin.math.max
 class OverlayService : Service() {
     companion object {
         const val ACTION_OPEN = "com.mafaz.dialer.OPEN_PANEL"
+
+        @Volatile
+        private var instance: OverlayService? = null
+
+        // Called by the panel screen: hide the dots while it is open, show them again after.
+        fun panelState(open: Boolean) {
+            val s = instance ?: return
+            Handler(Looper.getMainLooper()).post { s.onPanelState(open) }
+        }
     }
 
     private lateinit var wm: WindowManager
     private lateinit var prefs: SharedPreferences
     private var handle: View? = null
-    private var panel: PanelView? = null
     private var observer: ContentObserver? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
         startInForeground()
@@ -82,8 +91,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         observer?.let { contentResolver.unregisterContentObserver(it) }
         observer = null
-        panel?.let { try { wm.removeView(it) } catch (e: Exception) { } }
-        panel = null
+        instance = null
         handle?.let { try { wm.removeView(it) } catch (e: Exception) { } }
         handle = null
         super.onDestroy()
@@ -96,9 +104,9 @@ class OverlayService : Service() {
         nm.createNotificationChannel(
             NotificationChannel("dots", "Floating dots", NotificationManager.IMPORTANCE_MIN)
         )
-        val openIntent = Intent(this, OverlayService::class.java)
-        openIntent.action = ACTION_OPEN
-        val open = PendingIntent.getForegroundService(this, 1, openIntent, PendingIntent.FLAG_IMMUTABLE)
+        val open = PendingIntent.getActivity(
+            this, 1, Intent(this, PanelActivity::class.java), PendingIntent.FLAG_IMMUTABLE
+        )
         val settings = PendingIntent.getActivity(
             this, 2, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
@@ -193,30 +201,18 @@ class OverlayService : Service() {
     }
 
     private fun openPanel() {
-        if (panel != null) return
-        val left = prefs.getString("side", "left") == "left"
-        val p = PanelView(this, left) { closePanel() }
-        val lp = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        )
-        lp.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
-            WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
-        wm.addView(p, lp)
-        panel = p
-        handle?.visibility = View.GONE
+        val i = Intent(this, PanelActivity::class.java)
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
+        try {
+            startActivity(i)
+            handle?.visibility = View.GONE
+        } catch (e: Exception) {
+            AppLog.w(this, "OverlayService.openPanel", e)
+        }
     }
 
-    private fun closePanel() {
-        val p = panel ?: return
-        p.dismiss {
-            try { wm.removeView(p) } catch (e: Exception) { }
-            if (panel === p) panel = null
-            handle?.visibility = View.VISIBLE
-            if (!prefs.getBoolean("enabled", false)) stopSelf()
-        }
+    private fun onPanelState(open: Boolean) {
+        handle?.visibility = if (open) View.GONE else View.VISIBLE
+        if (!open && !prefs.getBoolean("enabled", false)) stopSelf()
     }
 }

@@ -67,7 +67,6 @@ class PanelView(
     private var layerIsBubble = false
     private var dragBubble: View? = null
     private val bubbleActs = ArrayList<Act>()
-    private var hadFocus = false
     private val inPanel = setOf("note", "history", "remind", "block", "fav")
     private var startX = 0f
     private var startY = 0f
@@ -156,7 +155,7 @@ class PanelView(
                 insets.systemWindowInsetBottom
             }
             if (kb < dp(100)) kb = 0
-            if (Build.VERSION.SDK_INT >= 35) {
+            if (Build.VERSION.SDK_INT >= 30) {
                 val b = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
                 if (b.top > 0) topPad = b.top + dp(12)
                 if (b.bottom > 0) botPad = b.bottom + dp(12)
@@ -492,14 +491,13 @@ class PanelView(
         return super.onTouchEvent(e)
     }
 
-    // Pressing Home or Recents moves window focus away: close the panel.
-    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
-        super.onWindowFocusChanged(hasWindowFocus)
-        if (hasWindowFocus) {
-            hadFocus = true
-        } else if (hadFocus && !closing) {
-            onClose()
+    // Back closes an open popup first; returns false when the panel itself should close.
+    fun handleBack(): Boolean {
+        if (layer != null) {
+            dismissPopup()
+            return true
         }
+        return false
     }
 
     private fun dismissPopup() {
