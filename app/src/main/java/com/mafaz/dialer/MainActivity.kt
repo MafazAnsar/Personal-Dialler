@@ -71,7 +71,9 @@ class MainActivity : Activity() {
 
         heading("Personal Dialler", 26f)
         text("Floating dots shortcut and a private phone app. Nothing leaves your phone.")
-        addBtn("Open keypad") { startActivity(Intent(this, DialActivity::class.java)) }
+        addBtn("Open keypad") {
+            startActivity(Intent(this, PanelActivity::class.java).putExtra(PanelActivity.EXTRA_KEYPAD, true))
+        }
         status = TextView(this)
         status.textSize = 15f
         status.setTextColor(Ui.text(this))

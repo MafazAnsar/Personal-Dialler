@@ -37,7 +37,8 @@ class ContactsPane(
     private val onDone: () -> Unit,
     private val onKeypad: () -> Unit,
     private val onSelect: (Person?) -> Unit = {},
-    private val tray: Boolean = false
+    private val tray: Boolean = false,
+    private val onOrder: () -> Unit = {}
 ) : LinearLayout(ctx) {
 
     private class Holder(val row: View, val av: AvatarView, val name: TextView, val sub: TextView)
@@ -237,6 +238,7 @@ class ContactsPane(
         reversed = !reversed
         Ui.cfg(context).edit().putBoolean("revlist", reversed).apply()
         refresh()
+        onOrder()
     }
 
     private fun tapped(p: Person, tag: String, view: View?) {
@@ -344,8 +346,12 @@ class ContactsPane(
             if (p.duration > 0) sb.append("  ").append(fmtDur(p.duration))
             if (p.name != p.number) sb.append("  ").append(p.number)
         } else {
-            if (p.label.isNotEmpty()) sb.append(p.label).append("  \u00B7  ")
-            sb.append(p.number)
+            if (p.label == "Typed number") {
+                sb.append("Typed number  \u00B7  tap for actions")
+            } else {
+                if (p.label.isNotEmpty()) sb.append(p.label).append("  \u00B7  ")
+                sb.append(p.number)
+            }
             val cid = p.contactId
             val def = if (cid != null) defMap[cid] else null
             if (cid != null && def != null && multiIds.contains(cid) && Store.key(def) == Store.key(p.number)) {
@@ -388,6 +394,15 @@ class ContactsPane(
         return false
     }
 
+    // A number typed into the search box or keypad becomes a row of its own, so it can be
+    // used for any action (SMS, WhatsApp, save to contacts, remind...) and not only dialled.
+    private fun typedNumber(q: String): Person? {
+        if (q.isEmpty()) return null
+        if (!q.all { it.isDigit() || it == '+' || it == '*' || it == '#' || it == ' ' || it == '-' || it == '(' || it == ')' }) return null
+        if (q.count { it.isDigit() } < 3) return null
+        return Person(q, q, null, 0, 0L, 0L, 0, "Typed number")
+    }
+
     private fun searchAll(q: String): List<Person> {
         val out = ArrayList<Person>()
         val seen = HashSet<String>()
@@ -417,6 +432,8 @@ class ContactsPane(
                 else -> favFirst()
             }
         } else searchAll(q)
+        val typed = typedNumber(q)
+        if (typed != null) data = listOf(typed) + data
         if (reversed) data = data.reversed()
         shown = data
         adapter.notifyDataSetChanged()
