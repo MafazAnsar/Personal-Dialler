@@ -1,4 +1,4 @@
-# Personal Dialler v0.17
+# Personal Dialler v0.16
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -39,8 +39,6 @@ The app icon, and a tap on the "Floating dots active" notification, open the dia
 Android's own icon-zoom animation belongs to the launcher and cannot be switched off by an app. The icon's launch window is therefore invisible and has no animations of its own, and the panel waits until the zoom has finished before it appears. If you want no zoom at all, set Developer options > Transition animation scale to off (this affects every app).
 
 ## Panel
-- The keypad always opens inside the panel (Open keypad in settings, phone links, the Keypad shortcut and Add call on the call screen). A number you type becomes a row of its own: tap it, or drag it, to use any action on it (SMS, WhatsApp, save to contacts, remind, note...), not only to dial it.
-- With the list starting from the bottom, the side column puts settings at the top and the action icons at the bottom, near your thumb.
 - Two action modes (Settings > Panel actions): icons in a tray next to the contact (default; the side column is hidden and the gear sits by the search box), or icons in a column on the other side (tap a contact, then tap an icon, or drag onto it).
 - Contact details: the "Contact details" icon or the long-press menu opens the contact in your contacts app.
 - Contacts with several numbers: each number is its own row; long-press a number and choose "Set as default number". Favourites show one row per contact using its default number (or its first), and un-favouriting removes the whole contact.

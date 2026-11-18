@@ -117,7 +117,7 @@ object Actions {
     // Used when an icon is tapped with no contact selected: just open the app itself.
     fun openApp(ctx: Context, id: String): Boolean {
         when (id) {
-            "call" -> launch(ctx, Intent(ctx, PanelActivity::class.java).putExtra(PanelActivity.EXTRA_KEYPAD, true))
+            "call" -> launch(ctx, Intent(ctx, DialActivity::class.java))
             "sms" -> launch(ctx, Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_MESSAGING))
             "mail" -> launch(ctx, Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_EMAIL))
             "wa" -> openPkg(ctx, WA, "WhatsApp")

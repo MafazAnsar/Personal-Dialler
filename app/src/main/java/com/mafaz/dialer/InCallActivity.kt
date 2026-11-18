@@ -277,9 +277,7 @@ class InCallActivity : Activity() {
             val c = CallManager.current()
             if (c != null) { if (c.state == Call.STATE_HOLDING) c.unhold() else c.hold() }
         }
-        val add = ctl("plus", "Add call") {
-            startActivity(Intent(this, PanelActivity::class.java).putExtra(PanelActivity.EXTRA_KEYPAD, true))
-        }
+        val add = ctl("plus", "Add call") { startActivity(Intent(this, DialActivity::class.java)) }
         val note = ctl("cnote", "Note") { withPerson { p -> Actions.note(this, p) } }
         val block = ctl("block", "Block") { withPerson { p -> Actions.block(this, p) } }
         val msg = ctl("sms", "Message") { messageCard() }
