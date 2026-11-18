@@ -1,4 +1,4 @@
-# Personal Dialler v0.15
+# Personal Dialler v0.16
 
 Floating dots + private phone app. No internet permission, nothing leaves the phone.
 
@@ -39,6 +39,9 @@ The app icon, and a tap on the "Floating dots active" notification, open the dia
 Android's own icon-zoom animation belongs to the launcher and cannot be switched off by an app. The icon's launch window is therefore invisible and has no animations of its own, and the panel waits until the zoom has finished before it appears. If you want no zoom at all, set Developer options > Transition animation scale to off (this affects every app).
 
 ## Panel
+- Two action modes (Settings > Panel actions): icons in a tray next to the contact (default; the side column is hidden and the gear sits by the search box), or icons in a column on the other side (tap a contact, then tap an icon, or drag onto it).
+- Contact details: the "Contact details" icon or the long-press menu opens the contact in your contacts app.
+- Contacts with several numbers: each number is its own row; long-press a number and choose "Set as default number". Favourites show one row per contact using its default number (or its first), and un-favouriting removes the whole contact.
 - Swiping is endless: past Contacts you arrive back at Frequent, and the other way round.
 - Opens on Frequent (top 4 of the last 250 calls, merged per contact), then Recent and Contacts. Swipe left/right anywhere to switch.
 - Drag a contact onto an icon. Icons and their order are chosen in the app: call, SMS, WhatsApp, Telegram, Signal, Viber, email, call history, remind me, note, block.
@@ -55,7 +58,7 @@ Android's own icon-zoom animation belongs to the launcher and cannot be switched
 - Dual SIM: ask every time, SIM 1, SIM 2 or phone default.
 - Incoming calls: swipe the handle right to answer or left to decline (taps do nothing). The End button is pinned at the bottom.
 - Call screen: audio output picker, hold, add call, swap and merge for call waiting, notes, block.
-- Decline with a quick reply SMS (edit the replies in the app). Volume key silences the ringer.
+- Decline with a quick reply by SMS or WhatsApp (WhatsApp opens the chat with the text typed; you press send). A Message button on the call screen opens an SMS or WhatsApp chat. Edit the replies in the app. Volume key silences the ringer.
 - Block list, plus optional rules for numbers not in contacts and hidden numbers.
 - Popup after each call: call back, message, note, block, remind me later.
 
