@@ -84,22 +84,31 @@ object Repo {
         return out
     }
 
+    // One row per starred contact: its default number if you chose one, otherwise its first number.
     private fun systemFavourites(ctx: Context, limit: Int): List<Person> {
         if (!has(ctx, Manifest.permission.READ_CONTACTS)) return emptyList()
-        val out = ArrayList<Person>()
+        val byContact = LinkedHashMap<Long, ArrayList<Person>>()
         val seen = HashSet<String>()
         val sel = ContactsContract.CommonDataKinds.Phone.STARRED + "=1"
         val proj = arrayOf(P_ID, P_NAME, P_NUM, P_TYPE, P_LABEL)
         ctx.contentResolver.query(PHONE, proj, sel, null, P_SORT)?.use { c ->
-            while (c.moveToNext() && out.size < limit) {
+            while (c.moveToNext()) {
                 val id = c.getLong(0)
                 val name = c.getString(1) ?: continue
                 val num = c.getString(2) ?: continue
-                // every number of a starred contact is listed, so none is picked for you
                 if (seen.add(id.toString() + "|" + Store.key(num))) {
-                    out.add(Person(name, num, id, 0, 0L, 0L, 0, typeLabel(ctx, c.getInt(3), c.getString(4))))
+                    byContact.getOrPut(id) { ArrayList() }
+                        .add(Person(name, num, id, 0, 0L, 0L, 0, typeLabel(ctx, c.getInt(3), c.getString(4))))
                 }
             }
+        }
+        val defs = Store.defaults(ctx)
+        val out = ArrayList<Person>()
+        for ((id, list) in byContact) {
+            if (out.size >= limit) break
+            val d = defs[id]
+            val pick = (if (d != null) list.firstOrNull { Store.key(it.number) == Store.key(d) } else null) ?: list[0]
+            out.add(pick)
         }
         return out
     }

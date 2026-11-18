@@ -115,6 +115,7 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
         "history" -> 0xFF546E7A.toInt()
         "remind" -> 0xFFEF6C00.toInt()
         "addcontact" -> 0xFF00897B.toInt()
+        "contact" -> 0xFF7E57C2.toInt()
         "fav" -> 0xFFFFB300.toInt()
         else -> 0xFF607D8B.toInt()
     }
@@ -201,6 +202,12 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
                 }
                 path.close()
                 c.drawPath(path, fg)
+            }
+            "contact" -> {
+                fill()
+                c.drawCircle(50f, 38f, 13f, fg)
+                rect.set(26f, 56f, 74f, 80f)
+                c.drawRoundRect(rect, 12f, 12f, fg)
             }
             "more" -> {
                 fill()

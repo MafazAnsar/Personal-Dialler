@@ -36,7 +36,8 @@ class ContactsPane(
     private val host: DragHost,
     private val onDone: () -> Unit,
     private val onKeypad: () -> Unit,
-    private val onSelect: (Person?) -> Unit = {}
+    private val onSelect: (Person?) -> Unit = {},
+    private val tray: Boolean = false
 ) : LinearLayout(ctx) {
 
     private class Holder(val row: View, val av: AvatarView, val name: TextView, val sub: TextView)
@@ -50,6 +51,8 @@ class ContactsPane(
     private var favs: List<Person> = emptyList()
     private var favKeys: Set<String> = emptySet()
     private var favIds: Set<Long> = emptySet()
+    private var defMap: Map<Long, String> = emptyMap()
+    private var multiIds: Set<Long> = emptySet()
     private var shown: List<Person> = emptyList()
     private var tab = 0
     private var query = ""
@@ -114,6 +117,17 @@ class ContactsPane(
         val sbLp = LinearLayout.LayoutParams(dp(40), dp(40))
         sbLp.leftMargin = dp(6)
         head.addView(sb, sbLp)
+        if (tray) {
+            // no side column in tray mode, so settings live here
+            val gear = IconView(ctx, "gear")
+            gear.setOnClickListener {
+                Actions.openSettings(context)
+                onDone()
+            }
+            val gearLp = LinearLayout.LayoutParams(dp(40), dp(40))
+            gearLp.leftMargin = dp(6)
+            head.addView(gear, gearLp)
+        }
 
         selBar.orientation = LinearLayout.HORIZONTAL
         selBar.gravity = Gravity.CENTER_VERTICAL
@@ -184,6 +198,8 @@ class ContactsPane(
 
     fun selectedPerson(): Person? = selected
 
+    fun numberCount(contactId: Long): Int = all.count { it.contactId == contactId }
+
     fun reload() {
         load()
     }
@@ -201,7 +217,7 @@ class ContactsPane(
         selected = p
         selAv.bind(p.name, p.contactId)
         selText.text = p.name + "  \u00B7  now tap an icon"
-        selBar.visibility = View.VISIBLE
+        if (!tray) selBar.visibility = View.VISIBLE
         adapter.notifyDataSetChanged()
         onSelect(p)
     }
@@ -330,6 +346,11 @@ class ContactsPane(
         } else {
             if (p.label.isNotEmpty()) sb.append(p.label).append("  \u00B7  ")
             sb.append(p.number)
+            val cid = p.contactId
+            val def = if (cid != null) defMap[cid] else null
+            if (cid != null && def != null && multiIds.contains(cid) && Store.key(def) == Store.key(p.number)) {
+                sb.append("  \u00B7  default")
+            }
         }
         val note = Store.note(c, p.number)
         if (note != null) sb.append("  \uD83D\uDCDD ").append(note)
@@ -447,6 +468,13 @@ class ContactsPane(
         if (r.isEmpty() && a.isNotEmpty()) tab = 2
         favKeys = f.map { Store.key(it.number) }.toSet()
         favIds = f.mapNotNull { it.contactId }.toSet()
+        defMap = Store.defaults(context)
+        val counts = HashMap<Long, Int>()
+        for (p in a) {
+            val id = p.contactId
+            if (id != null) counts[id] = (counts[id] ?: 0) + 1
+        }
+        multiIds = counts.filter { it.value > 1 }.keys
         refresh()
     }
 

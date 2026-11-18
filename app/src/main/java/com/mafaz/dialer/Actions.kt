@@ -1,6 +1,7 @@
 package com.mafaz.dialer
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -142,6 +143,19 @@ object Actions {
 
     fun openSettings(ctx: Context) = launch(ctx, Intent(ctx, MainActivity::class.java))
 
+    fun openContact(ctx: Context, p: Person) {
+        val id = p.contactId ?: Repo.lookup(ctx, p.number)?.contactId
+        if (id == null) {
+            Toast.makeText(ctx, "Not in your contacts yet. Use Save to contacts.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        launch(ctx, Intent(Intent.ACTION_VIEW, ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, id)))
+    }
+
+    // Opens a WhatsApp chat with the text already typed; WhatsApp needs you to press send.
+    fun whatsappText(ctx: Context, number: String, text: String) =
+        viewIn(ctx, "https://wa.me/" + intl(number, cc(ctx)) + "?text=" + Uri.encode(text), WA, "WhatsApp")
+
     fun addContact(ctx: Context, p: Person) {
         val i = Intent(Intent.ACTION_INSERT_OR_EDIT)
         i.type = ContactsContract.Contacts.CONTENT_ITEM_TYPE
@@ -170,6 +184,7 @@ object Actions {
             "signal" -> signal(ctx, p)
             "viber" -> viber(ctx, p)
             "mail" -> email(ctx, p)
+            "contact" -> openContact(ctx, p)
             "addcontact" -> addContact(ctx, p)
             "fav" -> favourite(ctx, p)
             "history" -> history(ctx, p)

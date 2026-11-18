@@ -4,7 +4,7 @@ import android.content.Context
 import org.json.JSONObject
 
 object Backup {
-    private val files = arrayOf("settings", "notes", "blocks", "lastact")
+    private val files = arrayOf("settings", "notes", "blocks", "lastact", "favs", "defnum")
 
     fun export(ctx: Context): String {
         val root = JSONObject()

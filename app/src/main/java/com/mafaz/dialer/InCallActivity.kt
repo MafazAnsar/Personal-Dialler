@@ -280,6 +280,7 @@ class InCallActivity : Activity() {
         val add = ctl("plus", "Add call") { startActivity(Intent(this, DialActivity::class.java)) }
         val note = ctl("cnote", "Note") { withPerson { p -> Actions.note(this, p) } }
         val block = ctl("block", "Block") { withPerson { p -> Actions.block(this, p) } }
+        val msg = ctl("sms", "Message") { messageCard() }
         muteV = mute.second
         audioV = spk.second
         audioL = spk.third
@@ -287,8 +288,7 @@ class InCallActivity : Activity() {
         val r1 = LinearLayout(this)
         val r2 = LinearLayout(this)
         for (x in listOf(mute, keys, spk, hold)) r1.addView(x.first, LinearLayout.LayoutParams(0, WC, 1f))
-        for (x in listOf(add, note, block)) r2.addView(x.first, LinearLayout.LayoutParams(0, WC, 1f))
-        r2.addView(View(this), LinearLayout.LayoutParams(0, WC, 1f))
+        for (x in listOf(add, note, block, msg)) r2.addView(x.first, LinearLayout.LayoutParams(0, WC, 1f))
         grid.addView(r1, LinearLayout.LayoutParams(MP, WC))
         val r2lp = LinearLayout.LayoutParams(MP, WC)
         r2lp.topMargin = dp(16)
@@ -443,12 +443,64 @@ class InCallActivity : Activity() {
         val call = CallManager.current() ?: return
         val number = CallManager.numberOf(call)
         val list = replies()
-        val card = Cards.menu(this, "Decline and reply", list, -1) { i ->
-            popDlg?.dismiss()
-            sendSms(number, list[i])
-            call.reject(false, null)
+        val cfg = Ui.cfg(this)
+        var viaWa = cfg.getString("replychan", "sms") == "wa"
+        val card = Cards.card(this)
+        card.addView(Cards.title(this, "Decline and reply"))
+        val smsB = TextView(this)
+        val waB = TextView(this)
+        fun paint() {
+            for (pair in listOf(Pair(smsB, !viaWa), Pair(waB, viaWa))) {
+                val on = pair.second
+                pair.first.setTextColor(if (on) 0xFF101418.toInt() else Ui.text(this))
+                pair.first.background = Ui.round(if (on) Ui.accent(this) else Ui.card(this), dp(10))
+            }
         }
-        val d = Pop.dialog(this, card, 290) { }
+        val seg = LinearLayout(this)
+        seg.gravity = Gravity.CENTER
+        for (t in listOf(smsB, waB)) {
+            t.textSize = 13f
+            t.gravity = Gravity.CENTER
+            t.setPadding(dp(16), dp(8), dp(16), dp(8))
+            val lp = LinearLayout.LayoutParams(WC, WC)
+            lp.setMargins(dp(4), dp(2), dp(4), dp(8))
+            seg.addView(t, lp)
+        }
+        smsB.text = "SMS"
+        waB.text = "WhatsApp"
+        smsB.setOnClickListener {
+            viaWa = false
+            cfg.edit().putString("replychan", "sms").apply()
+            paint()
+        }
+        waB.setOnClickListener {
+            viaWa = true
+            cfg.edit().putString("replychan", "wa").apply()
+            paint()
+        }
+        paint()
+        card.addView(seg, LinearLayout.LayoutParams(MP, WC))
+        for (m in list) {
+            card.addView(Cards.item(this, m, false) {
+                popDlg?.dismiss()
+                if (viaWa) Actions.whatsappText(this, number, m) else sendSms(number, m)
+                call.reject(false, null)
+            })
+        }
+        val d = Pop.dialog(this, card, 300) { }
+        popDlg = d
+        d.show()
+    }
+
+    private fun messageCard() {
+        val call = CallManager.current() ?: return
+        val number = CallManager.numberOf(call)
+        val p = cachedPerson ?: Person(number, number)
+        val card = Cards.menu(this, "Message " + p.name, listOf("SMS", "WhatsApp"), -1) { i ->
+            popDlg?.dismiss()
+            if (i == 0) Actions.sms(this, p) else Actions.whatsapp(this, p)
+        }
+        val d = Pop.dialog(this, card, 240) { }
         popDlg = d
         d.show()
     }

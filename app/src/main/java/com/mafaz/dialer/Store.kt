@@ -140,4 +140,22 @@ object Store {
         if (k.isEmpty()) return
         sp(c, "lastact").edit().putString(k, id).apply()
     }
+
+    // The number used for a contact that has several (shown in favourites).
+    fun defaultNumber(c: Context, contactId: Long): String? =
+        sp(c, "defnum").getString(contactId.toString(), null)
+
+    fun setDefaultNumber(c: Context, contactId: Long, number: String) {
+        sp(c, "defnum").edit().putString(contactId.toString(), number).apply()
+    }
+
+    fun defaults(c: Context): Map<Long, String> {
+        val out = HashMap<Long, String>()
+        for (e in sp(c, "defnum").all.entries) {
+            val id = e.key.toLongOrNull() ?: continue
+            val v = e.value as? String ?: continue
+            out[id] = v
+        }
+        return out
+    }
 }

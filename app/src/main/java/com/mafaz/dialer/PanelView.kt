@@ -42,7 +42,8 @@ class PanelView(
     private val actionsScroll = ScrollView(ctx)
     private val holder = FrameLayout(ctx)
     private val sheet = FrameLayout(ctx)
-    private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() }, { p -> onSelection(p) })
+    private val trayMode = Ui.cfg(ctx).getString("actionmode", "tray") == "tray"
+    private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() }, { p -> onSelection(p) }, trayMode)
     private val keypad = KeypadView(
         ctx,
         showCall = true,
@@ -79,6 +80,7 @@ class PanelView(
         isFocusableInTouchMode = true
         setOnClickListener { onClose() }
 
+        if (!trayMode) {
         actionsCol.orientation = LinearLayout.VERTICAL
         actionsCol.gravity = Gravity.CENTER_VERTICAL
         actionsCol.isClickable = true
@@ -127,6 +129,7 @@ class PanelView(
         actionsScroll.isFillViewport = true
         actionsScroll.isVerticalScrollBarEnabled = false
         actionsScroll.addView(actionsCol, FrameLayout.LayoutParams(MP, WC))
+        }
 
         holder.addView(pane, FrameLayout.LayoutParams(MP, MP))
         buildSheet()
@@ -141,7 +144,17 @@ class PanelView(
         val gLp = LinearLayout.LayoutParams(0, MP, max(0.05f, 1f - frac))
         val aLp = LinearLayout.LayoutParams(dp(78), MP)
         val gap = View(ctx)
-        if (leftSide) {
+        if (trayMode) {
+            // no side column: the panel is wider and the rest is a margin that closes it
+            val tf = min(0.97f, frac + 0.15f)
+            val tLp = LinearLayout.LayoutParams(0, MP, tf)
+            val tgLp = LinearLayout.LayoutParams(0, MP, max(0.03f, 1f - tf))
+            if (leftSide) {
+                row.addView(holder, tLp); row.addView(gap, tgLp)
+            } else {
+                row.addView(gap, tgLp); row.addView(holder, tLp)
+            }
+        } else if (leftSide) {
             row.addView(holder, hLp); row.addView(gap, gLp); row.addView(actionsScroll, aLp)
         } else {
             row.addView(actionsScroll, aLp); row.addView(gap, gLp); row.addView(holder, hLp)
@@ -384,7 +397,7 @@ class PanelView(
         getLocationOnScreen(loc)
         c.x = lastX - loc[0] - c.width / 2f
         c.y = lastY - loc[1] - c.height - dp(24)
-        if (dragBubble == null && layer == null) {
+        if (trayMode && dragBubble == null && layer == null) {
             val mx = lastX - startX
             val my = lastY - startY
             if (mx * mx + my * my > dp(14) * dp(14)) showDragBubble()
@@ -575,6 +588,7 @@ class PanelView(
     }
 
     override fun onRowTapped(p: Person, row: View) {
+        if (!trayMode) return
         val card = buildBubble(p, false)
         dismissPopup()
         val l = FrameLayout(context)
@@ -645,6 +659,23 @@ class PanelView(
         if (!known) {
             labels.add("Save to contacts")
             runs.add { Actions.addContact(context, p); onClose() }
+        } else {
+            labels.add("Contact details")
+            runs.add { Actions.openContact(context, p); onClose() }
+        }
+        val cid = p.contactId ?: Repo.lookup(context, p.number)?.contactId
+        if (cid != null && pane.numberCount(cid) > 1) {
+            val d = Store.defaultNumber(context, cid)
+            if (d == null || Store.key(d) != Store.key(p.number)) {
+                labels.add("Set as default number")
+                runs.add {
+                    Store.setDefaultNumber(context, cid, p.number)
+                    Cache.clear()
+                    Toast.makeText(context, "Default number set", Toast.LENGTH_SHORT).show()
+                    dismissPopup()
+                    pane.reload()
+                }
+            }
         }
         labels.add(if (fav) "Remove from favourites" else "Add to favourites")
         runs.add { Actions.favourite(context, p); dismissPopup(); pane.reload() }

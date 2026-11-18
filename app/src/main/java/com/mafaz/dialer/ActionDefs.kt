@@ -5,9 +5,9 @@ import android.content.Context
 object ActionDefs {
     val all = listOf(
         "call", "sms", "wa", "tg", "signal", "viber", "mail",
-        "addcontact", "fav", "history", "remind", "note", "block"
+        "contact", "addcontact", "fav", "history", "remind", "note", "block"
     )
-    val defaults = listOf("call", "sms", "wa", "tg", "mail", "addcontact", "fav", "note", "block")
+    val defaults = listOf("call", "sms", "wa", "tg", "mail", "contact", "addcontact", "fav", "note", "block")
 
     fun title(id: String): String = when (id) {
         "call" -> "Call"
@@ -17,6 +17,7 @@ object ActionDefs {
         "signal" -> "Signal"
         "viber" -> "Viber"
         "mail" -> "Email"
+        "contact" -> "Contact details"
         "addcontact" -> "Save to contacts"
         "fav" -> "Add or remove favourite"
         "history" -> "Call history"
