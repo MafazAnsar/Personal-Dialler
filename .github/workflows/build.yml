@@ -42,7 +42,19 @@ jobs:
           ORG_GRADLE_PROJECT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ORG_GRADLE_PROJECT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: gradle assembleDebug --no-daemon
+      - name: Verify APK
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "File size and checksum (compare with the file you downloaded):"
+          ls -l "$APK"
+          sha256sum "$APK"
+          echo "Signature check:"
+          "$BT/apksigner" verify --verbose --print-certs "$APK"
+          echo "Package details:"
+          "$BT/aapt2" dump badging "$APK" | head -3
       - uses: actions/upload-artifact@v4
         with:
           name: PersonalDialer-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
