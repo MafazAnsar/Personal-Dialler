@@ -17,6 +17,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -42,8 +43,12 @@ class PanelView(
     private val actionsScroll = ScrollView(ctx)
     private val holder = FrameLayout(ctx)
     private val sheet = FrameLayout(ctx)
+    private val typedBar = HorizontalScrollView(ctx)
     private val trayMode = Ui.cfg(ctx).getString("actionmode", "tray") == "tray"
-    private val pane = ContactsPane(ctx, this, { onClose() }, { toggleSheet() }, { p -> onSelection(p) }, trayMode)
+    private val pane = ContactsPane(
+        ctx, this, { onClose() }, { toggleSheet() }, { p -> onSelection(p) }, trayMode,
+        { if (!trayMode) buildColumn() }
+    )
     private val keypad = KeypadView(
         ctx,
         showCall = true,
@@ -81,54 +86,13 @@ class PanelView(
         setOnClickListener { onClose() }
 
         if (!trayMode) {
-        actionsCol.orientation = LinearLayout.VERTICAL
-        actionsCol.gravity = Gravity.CENTER_VERTICAL
-        actionsCol.isClickable = true
-        actionsCol.setPadding(dp(8), 0, dp(8), 0)
-        for (id in ActionDefs.enabled(ctx)) {
-            icon(id, id) { p -> Actions.run(context, id, p) }
-        }
-        actionsCol.addView(View(ctx), LinearLayout.LayoutParams(MP, dp(10)))
-        val gear = IconView(ctx, "gear")
-        gear.setOnClickListener {
-            Actions.openSettings(context)
-            onClose()
-        }
-        val gLpIcon = LinearLayout.LayoutParams(dp(40), dp(40))
-        gLpIcon.setMargins(0, dp(6), 0, dp(6))
-        gLpIcon.gravity = Gravity.CENTER_HORIZONTAL
-        actionsCol.addView(gear, gLpIcon)
-        if (Ui.cfg(ctx).getBoolean("showtoggles", false)) {
-            toggle("torch") {
-                Toggles.torch(context)
-                postDelayed({ refreshToggles() }, 250)
-            }
-            toggle("bt") {
-                Toggles.bluetooth(context)
-                onClose()
-            }
-            toggle("wifi") {
-                Toggles.wifi(context)
-                onClose()
-            }
-            toggle("data") {
-                Toggles.data(context)
-                onClose()
-            }
-            toggle("dnd") {
-                Toggles.toggleDnd(context)
-                postDelayed({ refreshToggles() }, 300)
-            }
-            toggle("sound") {
-                Toggles.toggleSound(context)
-                refreshToggles()
-            }
-            layoutToggles()
-            refreshToggles()
-        }
-        actionsScroll.isFillViewport = true
-        actionsScroll.isVerticalScrollBarEnabled = false
-        actionsScroll.addView(actionsCol, FrameLayout.LayoutParams(MP, WC))
+            actionsCol.orientation = LinearLayout.VERTICAL
+            actionsCol.isClickable = true
+            actionsCol.setPadding(dp(8), 0, dp(8), 0)
+            actionsScroll.isFillViewport = true
+            actionsScroll.isVerticalScrollBarEnabled = false
+            actionsScroll.addView(actionsCol, FrameLayout.LayoutParams(MP, WC))
+            buildColumn()
         }
 
         holder.addView(pane, FrameLayout.LayoutParams(MP, MP))
@@ -212,6 +176,82 @@ class PanelView(
 
     private fun dp(v: Int) = Ui.dp(context, v)
 
+    private fun addGear() {
+        val gear = IconView(context, "gear")
+        gear.setOnClickListener {
+            Actions.openSettings(context)
+            onClose()
+        }
+        val lp = LinearLayout.LayoutParams(dp(40), dp(40))
+        lp.setMargins(0, dp(6), 0, dp(6))
+        lp.gravity = Gravity.CENTER_HORIZONTAL
+        actionsCol.addView(gear, lp)
+    }
+
+    // Settings is the first entry of the column when the list starts from the bottom (otherwise the last),
+    // unless chosen by hand in settings. The icons are centred unless you moved them to the top or bottom.
+    private fun buildColumn() {
+        actionsCol.removeAllViews()
+        acts.clear()
+        toggles.clear()
+        val cfg = Ui.cfg(context)
+        val gearFirst = when (cfg.getString("gearpos", "auto")) {
+            "top" -> true
+            "bottom" -> false
+            else -> cfg.getBoolean("revlist", false)
+        }
+        actionsCol.gravity = when (cfg.getString("actpos", "center")) {
+            "top" -> Gravity.TOP
+            "bottom" -> Gravity.BOTTOM
+            else -> Gravity.CENTER_VERTICAL
+        }
+        if (gearFirst) {
+            addGear()
+            actionsCol.addView(View(context), LinearLayout.LayoutParams(MP, dp(10)))
+        }
+        for (id in ActionDefs.enabled(context)) {
+            icon(id, id) { p -> Actions.run(context, id, p) }
+        }
+        if (!gearFirst) {
+            actionsCol.addView(View(context), LinearLayout.LayoutParams(MP, dp(10)))
+            addGear()
+        }
+        if (Ui.cfg(context).getBoolean("showtoggles", false)) {
+            toggle("torch") {
+                Toggles.torch(context)
+                postDelayed({ refreshToggles() }, 250)
+            }
+            toggle("bt") {
+                Toggles.bluetooth(context)
+                onClose()
+            }
+            toggle("wifi") {
+                Toggles.wifi(context)
+                onClose()
+            }
+            toggle("data") {
+                Toggles.data(context)
+                onClose()
+            }
+            toggle("dnd") {
+                Toggles.toggleDnd(context)
+                postDelayed({ refreshToggles() }, 300)
+            }
+            toggle("sound") {
+                Toggles.toggleSound(context)
+                refreshToggles()
+            }
+            layoutToggles()
+            refreshToggles()
+        }
+    }
+
+    // Opens the keypad sheet (used by phone links, the keypad shortcut and Add call).
+    fun openKeypad(number: String?) {
+        if (sheet.visibility != View.VISIBLE) toggleSheet()
+        if (!number.isNullOrEmpty()) keypad.setNumber(number)
+    }
+
     private fun buildSheet() {
         val bgd = GradientDrawable()
         bgd.setColor(Ui.withAlpha(Ui.solid(context), Ui.keyAlpha(context)))
@@ -230,6 +270,29 @@ class PanelView(
         handle.setTextColor(Ui.sub(context))
         handle.setOnClickListener { toggleSheet() }
         col.addView(handle, LinearLayout.LayoutParams(MP, dp(28)))
+        if (trayMode) {
+            typedBar.isHorizontalScrollBarEnabled = false
+            typedBar.visibility = View.GONE
+            val tr = LinearLayout(context)
+            tr.gravity = Gravity.CENTER_VERTICAL
+            for (id in ActionDefs.enabled(context)) {
+                val v = IconView(context, id)
+                val lp = LinearLayout.LayoutParams(dp(40), dp(40))
+                lp.setMargins(dp(4), dp(2), dp(4), dp(4))
+                tr.addView(v, lp)
+                val act = Act(v, id) { q -> Actions.run(context, id, q) }
+                v.setOnClickListener {
+                    val p = pane.selectedPerson()
+                    if (p != null) {
+                        val loc = IntArray(2)
+                        v.getLocationOnScreen(loc)
+                        performAction(act, p, loc[0] + v.width / 2f, loc[1] + v.height / 2f)
+                    }
+                }
+            }
+            typedBar.addView(tr)
+            col.addView(typedBar, LinearLayout.LayoutParams(MP, WC))
+        }
         col.addView(keypad, LinearLayout.LayoutParams(MP, 0, 1f))
         sheet.addView(col, FrameLayout.LayoutParams(MP, MP))
     }
@@ -269,6 +332,7 @@ class PanelView(
     }
 
     private fun onSelection(p: Person?) {
+        if (trayMode) typedBar.visibility = if (p != null && p.label == "Typed number") View.VISIBLE else View.GONE
         for (a in acts) {
             val v = a.view
             v.alpha = if (p != null) 1f else 0.92f
@@ -296,6 +360,8 @@ class PanelView(
             val loc = IntArray(2)
             a.view.getLocationOnScreen(loc)
             performAction(a, p, loc[0] + a.view.width / 2f, loc[1] + a.view.height / 2f)
+        } else if (a.id == "call") {
+            openKeypad(null)
         } else {
             if (Actions.openApp(context, a.id)) onClose()
         }

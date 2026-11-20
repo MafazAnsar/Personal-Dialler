@@ -28,8 +28,10 @@ android {
         applicationId = "com.mafaz.dialer"
         minSdk = 29
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.16"
+        // CI numbers every build, so each new build is always newer than the one before it.
+        val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        versionCode = if (run != null) 100 + run else 21
+        versionName = if (run != null) "0.20 (build $run)" else "0.20"
     }
     buildTypes {
         release { isMinifyEnabled = false }

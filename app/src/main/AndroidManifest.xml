@@ -65,7 +65,9 @@
         <activity
             android:name=".DialActivity"
             android:exported="true"
-            android:windowSoftInputMode="stateHidden">
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/LaunchTheme">
             <intent-filter>
                 <action android:name="android.intent.action.DIAL" />
                 <category android:name="android.intent.category.DEFAULT" />

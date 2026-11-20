@@ -39,6 +39,8 @@ class MainActivity : Activity() {
     private lateinit var swatches: LinearLayout
     private lateinit var simBtn: Button
     private lateinit var modeBtn: Button
+    private lateinit var posBtn: Button
+    private lateinit var gearBtn: Button
     private lateinit var actionsBox: LinearLayout
 
     private fun dp(v: Int) = Ui.dp(this, v)
@@ -71,7 +73,9 @@ class MainActivity : Activity() {
 
         heading("Personal Dialler", 26f)
         text("Floating dots shortcut and a private phone app. Nothing leaves your phone.")
-        addBtn("Open keypad") { startActivity(Intent(this, DialActivity::class.java)) }
+        addBtn("Open keypad") {
+            startActivity(Intent(this, PanelActivity::class.java).putExtra(PanelActivity.EXTRA_KEYPAD, true))
+        }
         status = TextView(this)
         status.textSize = 15f
         status.setTextColor(Ui.text(this))
@@ -169,6 +173,18 @@ class MainActivity : Activity() {
         modeBtn = addBtn("Action mode") {
             val now = prefs.getString("actionmode", "tray")
             prefs.edit().putString("actionmode", if (now == "tray") "column" else "tray").apply()
+            refresh()
+        }
+        posBtn = addBtn("Position") {
+            val order = listOf("center", "top", "bottom")
+            val now = prefs.getString("actpos", "center") ?: "center"
+            prefs.edit().putString("actpos", order[(order.indexOf(now) + 1) % order.size]).apply()
+            refresh()
+        }
+        gearBtn = addBtn("Settings button") {
+            val order = listOf("auto", "top", "bottom")
+            val now = prefs.getString("gearpos", "auto") ?: "auto"
+            prefs.edit().putString("gearpos", order[(order.indexOf(now) + 1) % order.size]).apply()
             refresh()
         }
         text("Tick the icons you want and use the arrows to change the order.")
@@ -527,6 +543,16 @@ class MainActivity : Activity() {
         toggle.text = if (prefs.getBoolean("enabled", false)) "Stop floating dots" else "Start floating dots"
         sideBtn.text = "Dots on the " + prefs.getString("side", "left") + " edge (tap to switch)"
         simBtn.text = "SIM for calls: " + simLabel() + " (tap to change)"
+        posBtn.text = "Column icons: " + when (prefs.getString("actpos", "center")) {
+            "top" -> "at the top"
+            "bottom" -> "at the bottom"
+            else -> "in the middle"
+        } + " (tap to change)"
+        gearBtn.text = "Settings button: " + when (prefs.getString("gearpos", "auto")) {
+            "top" -> "always first"
+            "bottom" -> "always last"
+            else -> "first when the list starts from the bottom"
+        } + " (tap to change)"
         modeBtn.text = if (prefs.getString("actionmode", "tray") == "tray")
             "Actions: in a tray next to the contact (tap to switch)"
         else "Actions: in a column on the other side (tap to switch)"

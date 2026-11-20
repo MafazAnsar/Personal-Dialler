@@ -13,6 +13,7 @@ import android.text.format.DateUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.EditText
@@ -37,7 +38,8 @@ class ContactsPane(
     private val onDone: () -> Unit,
     private val onKeypad: () -> Unit,
     private val onSelect: (Person?) -> Unit = {},
-    private val tray: Boolean = false
+    private val tray: Boolean = false,
+    private val onOrder: () -> Unit = {}
 ) : LinearLayout(ctx) {
 
     private class Holder(val row: View, val av: AvatarView, val name: TextView, val sub: TextView)
@@ -68,7 +70,7 @@ class ContactsPane(
     private val selAv = AvatarView(ctx)
     private val selText = TextView(ctx)
     private val tabs = arrayOf(TextView(ctx), TextView(ctx), TextView(ctx))
-    private val list = ListView(ctx)
+    private val list = BottomStickyList(ctx)
     private val empty = TextView(ctx)
     private val listFrame = FrameLayout(ctx)
 
@@ -100,6 +102,7 @@ class ContactsPane(
             override fun afterTextChanged(s: Editable?) {
                 query = s?.toString() ?: ""
                 refresh()
+                autoSelectTyped()
             }
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -222,6 +225,21 @@ class ContactsPane(
         onSelect(p)
     }
 
+    // A typed number is selected straight away, so an action can be picked without tapping its row first.
+    private fun autoSelectTyped() {
+        val t = typedNumber(query.trim())
+        if (t != null) {
+            selected = t
+            selAv.bind(t.name, null)
+            selText.text = t.name + "  \u00B7  now tap an icon"
+            if (!tray) selBar.visibility = View.VISIBLE
+            adapter.notifyDataSetChanged()
+            onSelect(t)
+        } else if (selected?.label == "Typed number") {
+            clearSelection()
+        }
+    }
+
     private fun clearSelection() {
         selected = null
         selBar.visibility = View.GONE
@@ -237,6 +255,7 @@ class ContactsPane(
         reversed = !reversed
         Ui.cfg(context).edit().putBoolean("revlist", reversed).apply()
         refresh()
+        onOrder()
     }
 
     private fun tapped(p: Person, tag: String, view: View?) {
@@ -344,8 +363,12 @@ class ContactsPane(
             if (p.duration > 0) sb.append("  ").append(fmtDur(p.duration))
             if (p.name != p.number) sb.append("  ").append(p.number)
         } else {
-            if (p.label.isNotEmpty()) sb.append(p.label).append("  \u00B7  ")
-            sb.append(p.number)
+            if (p.label == "Typed number") {
+                sb.append("Typed number  \u00B7  tap for actions")
+            } else {
+                if (p.label.isNotEmpty()) sb.append(p.label).append("  \u00B7  ")
+                sb.append(p.number)
+            }
             val cid = p.contactId
             val def = if (cid != null) defMap[cid] else null
             if (cid != null && def != null && multiIds.contains(cid) && Store.key(def) == Store.key(p.number)) {
@@ -388,6 +411,15 @@ class ContactsPane(
         return false
     }
 
+    // A number typed into the search box or keypad becomes a row of its own, so it can be
+    // used for any action (SMS, WhatsApp, save to contacts, remind...) and not only dialled.
+    private fun typedNumber(q: String): Person? {
+        if (q.isEmpty()) return null
+        if (!q.all { it.isDigit() || it == '+' || it == '*' || it == '#' || it == ' ' || it == '-' || it == '(' || it == ')' }) return null
+        if (q.count { it.isDigit() } < 3) return null
+        return Person(q, q, null, 0, 0L, 0L, 0, "Typed number")
+    }
+
     private fun searchAll(q: String): List<Person> {
         val out = ArrayList<Person>()
         val seen = HashSet<String>()
@@ -417,10 +449,13 @@ class ContactsPane(
                 else -> favFirst()
             }
         } else searchAll(q)
+        val typed = typedNumber(q)
+        if (typed != null) data = listOf(typed) + data
         if (reversed) data = data.reversed()
         shown = data
         adapter.notifyDataSetChanged()
         list.isStackFromBottom = reversed
+        list.sticky = reversed
         if (reversed && shown.isNotEmpty()) list.setSelection(shown.size - 1)
         empty.text = if (all.isEmpty() && recents.isEmpty())
             "Nothing to show. Allow contacts and call log permission in the app."
