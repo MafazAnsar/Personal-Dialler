@@ -151,9 +151,9 @@ class ContactsPane(
         clear.setPadding(dp(10), dp(4), dp(10), dp(4))
         clear.setOnClickListener { clearSelection() }
         selBar.addView(clear)
-        val sbLp2 = LinearLayout.LayoutParams(MP, WC)
-        sbLp2.bottomMargin = dp(6)
-        addView(selBar, sbLp2)
+        // Keep the selected-contact indicator out of the vertical layout.
+        // The selected row itself is highlighted, so showing a separate bar here
+        // only shifts the contact list down and costs a row of visible space.
 
 
         val tabRow = LinearLayout(ctx)
