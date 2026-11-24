@@ -85,6 +85,33 @@ class MainActivity : Activity() {
         status.setPadding(0, dp(12), 0, dp(4))
         root.addView(status)
 
+        settingsPage = settingsPages.getValue("General")
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = Ui.round(Ui.card(this@MainActivity), dp(14))
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        root.addView(tabs)
+        val pagesHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(pagesHost)
+        val tabNames = listOf("Appearance", "Calls", "Panel", "General")
+        for (name in tabNames) {
+            val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+            settingsPages[name] = page
+            pagesHost.addView(page, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            val tab = TextView(this).apply {
+                text = name
+                gravity = Gravity.CENTER
+                textSize = 12f
+                setTextColor(Ui.text(this@MainActivity))
+                setPadding(dp(7), dp(12), dp(7), dp(12))
+                setOnClickListener { showSettingsTab(name, tabs) }
+            }
+            tabs.addView(tab, LinearLayout.LayoutParams(0, dp(44), 1f))
+        }
+        settingsPage = settingsPages.getValue("Appearance")
+        showSettingsTab("Appearance", tabs)
+
         heading("Setup", 18f)
         addBtn("1. Allow contacts, call log and phone") {
             val p = arrayListOf(
@@ -130,32 +157,7 @@ class MainActivity : Activity() {
             }
         }
 
-        val tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = Ui.round(Ui.card(this@MainActivity), dp(14))
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-        }
-        root.addView(tabs)
-        val pagesHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(pagesHost)
-        val tabNames = listOf("Appearance", "Calls", "Panel", "General")
-        for (name in tabNames) {
-            val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
-            settingsPages[name] = page
-            pagesHost.addView(page, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            val tab = TextView(this).apply {
-                text = name
-                gravity = Gravity.CENTER
-                textSize = 12f
-                setTextColor(Ui.text(this@MainActivity))
-                setPadding(dp(7), dp(12), dp(7), dp(12))
-                setOnClickListener { showSettingsTab(name, tabs) }
-            }
-            tabs.addView(tab, LinearLayout.LayoutParams(0, dp(44), 1f))
-        }
         settingsPage = settingsPages.getValue("Appearance")
-        showSettingsTab("Appearance", tabs)
-
         heading("Floating dots", 18f)
         toggle = addBtn("Start floating dots") { toggleService() }
         sideBtn = addBtn("Side") {
