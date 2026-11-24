@@ -49,8 +49,8 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
             var zoom = 2.8
             while (running) {
                 try {
-                    val w = 144
-                    val h = 256
+                    val w = 120
+                    val h = 213
                     val pixels = IntArray(w * h)
                     val scale = zoom
                     for (py in 0 until h) {
@@ -60,7 +60,7 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                             var zr = 0.0
                             var zi = 0.0
                             var n = 0
-                            val maxIter = 42
+                            val maxIter = 34
                             while (zr * zr + zi * zi <= 256.0 && n < maxIter) {
                                 val nextR = zr * zr - zi * zi + cr
                                 zi = 2.0 * zr * zi + ci
@@ -89,13 +89,13 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                             bitmap.recycle()
                         }
                     }
-                    zoom *= 0.88
+                    zoom *= 0.985
                     if (zoom < 0.00000025) zoom = 2.8
-                    Thread.sleep(850)
+                    Thread.sleep(12)
                 } catch (_: InterruptedException) {
                     break
                 } catch (_: Exception) {
-                    Thread.sleep(1000)
+                    Thread.sleep(100)
                 }
             }
         }, "MandelbrotRenderer").apply { isDaemon = true; start() }
@@ -141,9 +141,9 @@ class CallerMatrixView(ctx: Context) : View(ctx) {
         val source = (name + "   " + number).filter { it.isLetterOrDigit() || it == '+' || it == '*' || it == '#' }
         val chars = source.ifBlank { "CALL" }
         val random = Random(chars.hashCode())
-        glyphs = List(54) { i ->
+        glyphs = List(66) { i ->
             Glyph(chars[i % chars.length], random.nextFloat(), random.nextFloat(),
-                0.10f + random.nextFloat() * 0.28f, 11f + random.nextFloat() * 9f,
+                0.10f + random.nextFloat() * 0.28f, 22f + random.nextFloat() * 18f,
                 random.nextFloat() * 6.28f)
         }
         invalidate()
@@ -166,7 +166,7 @@ class CallerMatrixView(ctx: Context) : View(ctx) {
             val y = ((g.y + progress * g.speed * 2.5f) % 1.12f) * height - height * 0.06f
             val x = (g.x + sin(t + g.phase) * 0.025f).coerceIn(0f, 1f) * width
             val wave = (0.5f + 0.5f * sin(t * 1.3f + g.phase))
-            val alpha = (18 + wave * 45).toInt().coerceIn(18, 63)
+            val alpha = (42 + wave * 52).toInt().coerceIn(42, 94)
             paint.color = if (i % 7 == 0) Color.argb(alpha, 112, 145, 145)
                 else Color.argb(alpha, 190, 198, 204)
             paint.textSize = g.size * density
