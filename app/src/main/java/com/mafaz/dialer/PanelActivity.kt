@@ -17,7 +17,6 @@ class PanelActivity : Activity() {
     }
 
     private lateinit var panel: PanelView
-    private var settingsLaunchPending = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,25 +61,16 @@ class PanelActivity : Activity() {
         }
     }
 
-    fun prepareForSettingsLaunch() {
-        settingsLaunchPending = true
-    }
-
-    override fun onResume() {
-        super.onResume()
-        settingsLaunchPending = false
-    }
-
     override fun onBackPressed() {
         if (!panel.handleBack()) closePanel()
     }
 
     override fun onUserLeaveHint() {
-        if (!isFinishing && !settingsLaunchPending) finish()
+        if (!isFinishing) finish()
     }
 
     override fun onStop() {
-        if (!isFinishing && !settingsLaunchPending) finish()
+        if (!isFinishing) finish()
         super.onStop()
     }
 
