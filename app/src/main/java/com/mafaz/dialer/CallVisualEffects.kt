@@ -1,3 +1,17 @@
+package com.mafaz.dialer
+
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Typeface
+import android.animation.ValueAnimator
+import android.view.View
+import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.random.Random
+
 /** Lightweight ambient ribbons and drifting particles, tinted from the caller's identity colour. */
 class AuroraFlowView(ctx: Context) : View(ctx) {
     private data class Particle(val x: Float, val y: Float, val speed: Float, val size: Float, val phase: Float)
