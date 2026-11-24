@@ -179,9 +179,8 @@ class PanelView(
     private fun addGear() {
         val gear = IconView(context, "gear")
         gear.setOnClickListener {
-            // Open Settings without explicitly dismissing the dialler panel.
-            // PanelActivity manages its own lifecycle when Settings takes focus.
             Actions.openSettings(context)
+            onClose()
         }
         val lp = LinearLayout.LayoutParams(dp(40), dp(40))
         lp.setMargins(0, dp(6), 0, dp(6))
