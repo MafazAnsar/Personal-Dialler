@@ -57,16 +57,16 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                                 n++
                             }
                             val color = if (n >= maxIter) {
-                                Color.rgb(13, 17, 22)
+                                Color.argb(0, 13, 17, 22)
                             } else {
                                 val glow = (n * 3 + 18).coerceIn(18, 105)
-                                if (n % 7 == 0) Color.rgb(glow / 2, glow, glow)
-                                else Color.rgb(glow, (glow * 1.04).toInt().coerceAtMost(120), (glow * 1.08).toInt().coerceAtMost(125))
+                                if (n % 7 == 0) Color.argb(90, glow / 2, glow, glow)
+                                else Color.argb(65, glow, (glow * 1.04).toInt().coerceAtMost(120), (glow * 1.08).toInt().coerceAtMost(125))
                             }
                             pixels[py * w + px] = color
                         }
                     }
-                    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+                    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                     bitmap.setPixels(pixels, 0, w, 0, 0, w, h)
                     val old = frame
                     frame = bitmap
