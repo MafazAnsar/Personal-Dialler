@@ -60,7 +60,9 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                             var zr = 0.0
                             var zi = 0.0
                             var n = 0
-                            val maxIter = 34
+                            // More iterations are required as the view narrows into finer boundary detail.
+                            val depth = kotlin.math.ln(2.8 / scale) / kotlin.math.ln(2.0)
+                            val maxIter = (48 + depth * 7.5).toInt().coerceIn(48, 180)
                             while (zr * zr + zi * zi <= 256.0 && n < maxIter) {
                                 val nextR = zr * zr - zi * zi + cr
                                 zi = 2.0 * zr * zi + ci
@@ -68,11 +70,18 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                                 n++
                             }
                             val color = if (n >= maxIter) {
-                                Color.argb(0, 13, 17, 22)
+                                // Interior pixels remain transparent so the caller gradient stays visible.
+                                Color.TRANSPARENT
                             } else {
-                                val glow = (n * 3 + 18).coerceIn(18, 105)
-                                if (n % 7 == 0) Color.argb(90, glow / 2, glow, glow)
-                                else Color.argb(65, glow, (glow * 1.04).toInt().coerceAtMost(120), (glow * 1.08).toInt().coerceAtMost(125))
+                                // Smooth escape-time shading avoids flat bands and keeps the boundary visible
+                                // as additional detail appears at deeper zoom levels.
+                                val magnitude = kotlin.math.sqrt(zr * zr + zi * zi).coerceAtLeast(1.000001)
+                                val smooth = (n + 1.0 - kotlin.math.ln(kotlin.math.ln(magnitude)) / kotlin.math.ln(2.0))
+                                val band = (smooth * 8.0).toInt()
+                                val glow = (36 + (smooth * 5.5).toInt()).coerceIn(36, 118)
+                                val alpha = (58 + (band % 5) * 7).coerceIn(58, 86)
+                                if (band % 6 == 0) Color.argb(alpha, glow / 2, glow, glow)
+                                else Color.argb(alpha, glow, (glow * 1.04).toInt().coerceAtMost(130), (glow * 1.08).toInt().coerceAtMost(135))
                             }
                             pixels[py * w + px] = color
                         }
@@ -89,8 +98,10 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                             bitmap.recycle()
                         }
                     }
-                    zoom *= 0.985
-                    if (zoom < 0.00000025) zoom = 2.8
+                    // Keep the chosen boundary point pinned to the centre of the visible phone screen.
+                    // At the precision limit, restart at a nearby boundary scale rather than showing a blank frame.
+                    zoom *= 0.992
+                    if (zoom < 0.00000002) zoom = 0.0000008
                     Thread.sleep(12)
                 } catch (_: InterruptedException) {
                     break
