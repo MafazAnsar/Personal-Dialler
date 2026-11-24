@@ -43,8 +43,6 @@ class MainActivity : Activity() {
     private lateinit var gearBtn: Button
     private lateinit var actionsBox: LinearLayout
     private lateinit var visualThemeBox: LinearLayout
-    private lateinit var settingsPage: LinearLayout
-    private val settingsPages = linkedMapOf<String, LinearLayout>()
 
     private fun dp(v: Int) = Ui.dp(this, v)
 
@@ -84,33 +82,6 @@ class MainActivity : Activity() {
         status.setTextColor(Ui.text(this))
         status.setPadding(0, dp(12), 0, dp(4))
         root.addView(status)
-
-        settingsPage = settingsPages.getValue("General")
-        val tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = Ui.round(Ui.card(this@MainActivity), dp(14))
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-        }
-        root.addView(tabs)
-        val pagesHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(pagesHost)
-        val tabNames = listOf("Appearance", "Calls", "Panel", "General")
-        for (name in tabNames) {
-            val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
-            settingsPages[name] = page
-            pagesHost.addView(page, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            val tab = TextView(this).apply {
-                text = name
-                gravity = Gravity.CENTER
-                textSize = 12f
-                setTextColor(Ui.text(this@MainActivity))
-                setPadding(dp(7), dp(12), dp(7), dp(12))
-                setOnClickListener { showSettingsTab(name, tabs) }
-            }
-            tabs.addView(tab, LinearLayout.LayoutParams(0, dp(44), 1f))
-        }
-        settingsPage = settingsPages.getValue("Appearance")
-        showSettingsTab("Appearance", tabs)
 
         heading("Setup", 18f)
         addBtn("1. Allow contacts, call log and phone") {
@@ -157,7 +128,6 @@ class MainActivity : Activity() {
             }
         }
 
-        settingsPage = settingsPages.getValue("Appearance")
         heading("Floating dots", 18f)
         toggle = addBtn("Start floating dots") { toggleService() }
         sideBtn = addBtn("Side") {
@@ -177,18 +147,17 @@ class MainActivity : Activity() {
         switch("List starts from the bottom (newest nearest your thumb)", "revlist", false)
         text("Accent colour")
         swatches = LinearLayout(this)
-        settingsPage.addView(swatches)
+        root.addView(swatches)
         buildSwatches()
         heading("Caller screen graphics", 16f)
         text("Choose the ambient animation shown behind caller details. The caller-specific gradient remains in place.")
         visualThemeBox = LinearLayout(this)
         visualThemeBox.orientation = LinearLayout.VERTICAL
-        settingsPage.addView(visualThemeBox)
+        root.addView(visualThemeBox)
         buildVisualThemeOptions()
         switch("Show popup after calls", "postcall", true)
         switch("Show quick toggles on the panel (flashlight, Bluetooth, Wi-Fi, data, Do Not Disturb, sound)", "showtoggles", false)
 
-        settingsPage = settingsPages.getValue("Calls")
         heading("Calls", 18f)
         simBtn = addBtn("SIM") {
             val order = listOf("ask", "0", "1", "sys")
@@ -205,9 +174,8 @@ class MainActivity : Activity() {
         rep.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
         rep.afterTextChanged { t -> prefs.edit().putString("replies", t).apply() }
         styleEdit(rep)
-        settingsPage.addView(rep)
+        root.addView(rep)
 
-        settingsPage = settingsPages.getValue("Panel")
         heading("Panel actions", 18f)
         modeBtn = addBtn("Action mode") {
             val now = prefs.getString("actionmode", "tray")
@@ -229,14 +197,12 @@ class MainActivity : Activity() {
         text("Tick the icons you want and use the arrows to change the order.")
         actionsBox = LinearLayout(this)
         actionsBox.orientation = LinearLayout.VERTICAL
-        settingsPage.addView(actionsBox)
+        root.addView(actionsBox)
         buildActionRows()
 
-        settingsPage = settingsPages.getValue("Appearance")
         heading("Text", 18f)
         seek("Text size in lists (small, normal, large)", "fontsize", 2, 1)
 
-        settingsPage = settingsPages.getValue("General")
         heading("Backup and support", 18f)
         addBtn("Back up notes, blocks and settings") {
             val i = Intent(Intent.ACTION_CREATE_DOCUMENT)
@@ -260,7 +226,7 @@ class MainActivity : Activity() {
         cc.setText(prefs.getString("cc", "94"))
         cc.afterTextChanged { t -> prefs.edit().putString("cc", t.filter { it.isDigit() }).apply() }
         styleEdit(cc)
-        settingsPage.addView(cc)
+        root.addView(cc)
         numLenControl()
 
         val tip = TextView(this)
@@ -268,7 +234,7 @@ class MainActivity : Activity() {
         tip.textSize = 12f
         tip.setTextColor(Ui.sub(this))
         tip.setPadding(0, dp(20), 0, 0)
-        settingsPage.addView(tip)
+        root.addView(tip)
 
         heading("About", 18f)
         text(aboutText())
@@ -279,12 +245,12 @@ class MainActivity : Activity() {
         label.setTextColor(Ui.text(this))
         label.setPadding(0, dp(14), 0, dp(2))
         label.text = "Digits compared when matching numbers: " + Store.numLen
-        settingsPage.addView(label)
+        root.addView(label)
         val hint = TextView(this)
         hint.textSize = 12f
         hint.setTextColor(Ui.sub(this))
         hint.text = "Used for notes, blocks and favourites (7 to 12). Lowering it is safe; raising it keeps older entries working."
-        settingsPage.addView(hint)
+        root.addView(hint)
         val sb = SeekBar(this)
         sb.max = 5
         sb.progress = Store.numLen - 7
@@ -301,7 +267,7 @@ class MainActivity : Activity() {
                 Store.setNumLen(this@MainActivity, (s?.progress ?: 2) + 7)
             }
         })
-        (if (::settingsPage.isInitialized) settingsPage else root).addView(sb)
+        root.addView(sb)
     }
 
     private fun styleEdit(et: EditText) {
@@ -318,7 +284,7 @@ class MainActivity : Activity() {
         v.setTypeface(null, Typeface.BOLD)
         v.setTextColor(Ui.accent(this))
         v.setPadding(0, dp(18), 0, dp(4))
-        (if (::settingsPage.isInitialized) settingsPage else root).addView(v)
+        root.addView(v)
     }
 
     private fun text(t: String) {
@@ -326,7 +292,7 @@ class MainActivity : Activity() {
         v.text = t
         v.setTextColor(Ui.text(this))
         v.setPadding(0, dp(6), 0, dp(4))
-        (if (::settingsPage.isInitialized) settingsPage else root).addView(v)
+        root.addView(v)
     }
 
     private fun addBtn(label: String, onClick: () -> Unit): Button {
@@ -342,7 +308,7 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         )
         blp.topMargin = dp(6)
-        (if (::settingsPage.isInitialized) settingsPage else root).addView(b, blp)
+        root.addView(b, blp)
         return b
     }
 
@@ -359,7 +325,7 @@ class MainActivity : Activity() {
             restartService()
             if (key == "dark" || key == "square") recreate()
         }
-        (if (::settingsPage.isInitialized) settingsPage else root).addView(s)
+        root.addView(s)
     }
 
     private fun seek(label: String, key: String, max: Int, def: Int) {
@@ -378,18 +344,7 @@ class MainActivity : Activity() {
                 restartService()
             }
         })
-        (if (::settingsPage.isInitialized) settingsPage else root).addView(sb)
-    }
-
-    private fun showSettingsTab(name: String, tabs: LinearLayout) {
-        for ((tabName, page) in settingsPages) page.visibility = if (tabName == name) View.VISIBLE else View.GONE
-        for (i in 0 until tabs.childCount) {
-            val tab = tabs.getChildAt(i) as TextView
-            val selected = tab.text.toString() == name
-            tab.setTextColor(if (selected) Ui.accent(this) else Ui.sub(this))
-            tab.background = if (selected) Ui.round(Ui.withAlpha(Ui.accent(this), 0x30), dp(10)) else null
-            tab.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
-        }
+        root.addView(sb)
     }
 
     private fun buildVisualThemeOptions() {
