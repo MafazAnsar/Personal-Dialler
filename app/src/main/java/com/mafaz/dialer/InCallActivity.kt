@@ -57,7 +57,12 @@ class FractalZoomView(ctx: Context) : View(ctx) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        motion.start()
+        if (visibility == View.VISIBLE) motion.start()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == View.VISIBLE && isAttachedToWindow) motion.start() else motion.cancel()
     }
 
     override fun onDetachedFromWindow() {
