@@ -33,6 +33,17 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        if (visibility == View.VISIBLE) startRenderer()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == View.VISIBLE && isAttachedToWindow) startRenderer()
+        else stopRenderer()
+    }
+
+    private fun startRenderer() {
+        if (running) return
         running = true
         worker = Thread({
             var zoom = 2.8
@@ -90,6 +101,15 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
         }, "MandelbrotRenderer").apply { isDaemon = true; start() }
     }
 
+    private fun stopRenderer() {
+        running = false
+        worker?.interrupt()
+        worker = null
+        frame?.recycle()
+        frame = null
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val bitmap = frame ?: return
@@ -98,11 +118,7 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
     }
 
     override fun onDetachedFromWindow() {
-        running = false
-        worker?.interrupt()
-        worker = null
-        frame?.recycle()
-        frame = null
+        stopRenderer()
         super.onDetachedFromWindow()
     }
 }
@@ -133,7 +149,14 @@ class CallerMatrixView(ctx: Context) : View(ctx) {
         invalidate()
     }
 
-    override fun onAttachedToWindow() { super.onAttachedToWindow(); motion.start() }
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (visibility == View.VISIBLE) motion.start()
+    }
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == View.VISIBLE && isAttachedToWindow) motion.start() else motion.cancel()
+    }
     override fun onDetachedFromWindow() { motion.cancel(); super.onDetachedFromWindow() }
 
     override fun onDraw(canvas: Canvas) {
