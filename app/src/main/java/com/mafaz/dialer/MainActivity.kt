@@ -277,12 +277,12 @@ class MainActivity : Activity() {
         label.setTextColor(Ui.text(this))
         label.setPadding(0, dp(14), 0, dp(2))
         label.text = "Digits compared when matching numbers: " + Store.numLen
-        root.addView(label)
+        settingsPage.addView(label)
         val hint = TextView(this)
         hint.textSize = 12f
         hint.setTextColor(Ui.sub(this))
         hint.text = "Used for notes, blocks and favourites (7 to 12). Lowering it is safe; raising it keeps older entries working."
-        root.addView(hint)
+        settingsPage.addView(hint)
         val sb = SeekBar(this)
         sb.max = 5
         sb.progress = Store.numLen - 7
@@ -324,7 +324,7 @@ class MainActivity : Activity() {
         v.text = t
         v.setTextColor(Ui.text(this))
         v.setPadding(0, dp(6), 0, dp(4))
-        root.addView(v)
+        (if (::settingsPage.isInitialized) settingsPage else root).addView(v)
     }
 
     private fun addBtn(label: String, onClick: () -> Unit): Button {
