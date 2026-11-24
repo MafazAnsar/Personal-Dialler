@@ -91,19 +91,19 @@ class AuroraFlowView(ctx: Context) : View(ctx) {
 }
 
 
-/** A low-cost, gently moving network of nodes with caller-coloured links and travelling pulses. */
+/** Animated caller-coloured neural network with drifting nodes and travelling light pulses. */
 class NeuralNetworkView(ctx: Context) : View(ctx) {
     private data class Node(val x: Float, val y: Float, val phase: Float, val speed: Float)
     private val density = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val nodes = List(38) { i ->
+    private val nodes = List(44) { i ->
         val r = Random(9109 + i * 3571)
-        Node(r.nextFloat(), r.nextFloat(), r.nextFloat() * 6.28f, 0.12f + r.nextFloat() * 0.18f)
+        Node(r.nextFloat(), r.nextFloat(), r.nextFloat() * 6.28f, 0.20f + r.nextFloat() * 0.26f)
     }
     private var progress = 0f
     private var tint = 0xFF55C7D8.toInt()
     private val motion = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 30000L
+        duration = 24000L
         repeatCount = ValueAnimator.INFINITE
         interpolator = android.view.animation.LinearInterpolator()
         addUpdateListener { progress = it.animatedValue as Float; invalidate() }
@@ -125,42 +125,63 @@ class NeuralNetworkView(ctx: Context) : View(ctx) {
         super.onDraw(canvas)
         if (width <= 0 || height <= 0) return
         val t = progress * 2f * Math.PI.toFloat()
+        val red = Color.red(tint)
+        val green = Color.green(tint)
+        val blue = Color.blue(tint)
         val xs = FloatArray(nodes.size)
         val ys = FloatArray(nodes.size)
         for (i in nodes.indices) {
             val n = nodes[i]
-            xs[i] = (n.x + sin(t * n.speed + n.phase) * 0.035f) * width
-            ys[i] = (n.y + cos(t * n.speed * 0.8f + n.phase) * 0.035f) * height
+            xs[i] = (n.x + sin(t * n.speed + n.phase) * 0.075f) * width
+            ys[i] = (n.y + cos(t * n.speed * 0.83f + n.phase) * 0.075f) * height
         }
-        val maxDist = 145f * density
+
+        val maxDist = 172f * density
         val maxDist2 = maxDist * maxDist
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 0.8f * density
+        paint.strokeWidth = 1.0f * density
         for (i in nodes.indices) for (j in i + 1 until nodes.size) {
             val dx = xs[i] - xs[j]
             val dy = ys[i] - ys[j]
             val d2 = dx * dx + dy * dy
             if (d2 < maxDist2) {
                 val proximity = 1f - d2 / maxDist2
-                val pulse = 0.5f + 0.5f * sin(t * 1.7f + nodes[i].phase + nodes[j].phase)
-                val alpha = (5f + proximity * 17f + pulse * 8f).toInt().coerceIn(5, 30)
-                paint.color = Color.argb(alpha, Color.red(tint), Color.green(tint), Color.blue(tint))
+                val shimmer = 0.5f + 0.5f * sin(t * 1.8f + nodes[i].phase + nodes[j].phase)
+                val alpha = (9f + proximity * 25f + shimmer * 12f).toInt().coerceIn(8, 46)
+                paint.color = Color.argb(alpha, red, green, blue)
                 canvas.drawLine(xs[i], ys[i], xs[j], ys[j], paint)
+
+                // A small bright point travels along selected live connections.
+                if (j == (i + 5) % nodes.size || j == (i + 11) % nodes.size) {
+                    val phase = (progress * 2.8f + i * 0.137f + j * 0.031f) % 1f
+                    val px = xs[i] + (xs[j] - xs[i]) * phase
+                    val py = ys[i] + (ys[j] - ys[i]) * phase
+                    paint.style = Paint.Style.FILL
+                    paint.color = Color.argb(48, red, green, blue)
+                    canvas.drawCircle(px, py, 6.0f * density, paint)
+                    paint.color = Color.argb(185, red, green, blue)
+                    canvas.drawCircle(px, py, 2.1f * density, paint)
+                    paint.color = Color.argb(150, 225, 240, 248)
+                    canvas.drawCircle(px, py, 0.9f * density, paint)
+                    paint.style = Paint.Style.STROKE
+                }
             }
         }
+
         paint.style = Paint.Style.FILL
         for (i in nodes.indices) {
-            val pulse = 0.5f + 0.5f * sin(t * 1.5f + nodes[i].phase)
-            val alpha = (30f + pulse * 48f).toInt()
-            paint.color = Color.argb(alpha, Color.red(tint), Color.green(tint), Color.blue(tint))
-            canvas.drawCircle(xs[i], ys[i], (1.5f + pulse * 1.2f) * density, paint)
-            if (i % 6 == 0) {
-                paint.color = Color.argb((alpha * 0.45f).toInt(), 220, 235, 245)
-                canvas.drawCircle(xs[i], ys[i], (3f + pulse * 2f) * density, paint)
+            val pulse = 0.5f + 0.5f * sin(t * 2.0f + nodes[i].phase)
+            val alpha = (52f + pulse * 75f).toInt()
+            paint.color = Color.argb(alpha, red, green, blue)
+            canvas.drawCircle(xs[i], ys[i], (1.8f + pulse * 1.7f) * density, paint)
+            if (i % 5 == 0) {
+                paint.color = Color.argb((alpha * 0.34f).toInt(), 225, 240, 248)
+                canvas.drawCircle(xs[i], ys[i], (4f + pulse * 2.5f) * density, paint)
             }
         }
     }
 }
+
 
 /** Softly drifting glyphs derived only from the current caller's name and number. */
 class CallerMatrixView(ctx: Context) : View(ctx) {
