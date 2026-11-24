@@ -90,6 +90,78 @@ class AuroraFlowView(ctx: Context) : View(ctx) {
     }
 }
 
+
+/** A low-cost, gently moving network of nodes with caller-coloured links and travelling pulses. */
+class NeuralNetworkView(ctx: Context) : View(ctx) {
+    private data class Node(val x: Float, val y: Float, val phase: Float, val speed: Float)
+    private val density = resources.displayMetrics.density
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val nodes = List(38) { i ->
+        val r = Random(9109 + i * 3571)
+        Node(r.nextFloat(), r.nextFloat(), r.nextFloat() * 6.28f, 0.12f + r.nextFloat() * 0.18f)
+    }
+    private var progress = 0f
+    private var tint = 0xFF55C7D8.toInt()
+    private val motion = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 30000L
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = android.view.animation.LinearInterpolator()
+        addUpdateListener { progress = it.animatedValue as Float; invalidate() }
+    }
+
+    fun setCaller(color: Int) { tint = color; invalidate() }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (visibility == View.VISIBLE) motion.start()
+    }
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == View.VISIBLE && isAttachedToWindow) motion.start() else motion.cancel()
+    }
+    override fun onDetachedFromWindow() { motion.cancel(); super.onDetachedFromWindow() }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (width <= 0 || height <= 0) return
+        val t = progress * 2f * Math.PI.toFloat()
+        val xs = FloatArray(nodes.size)
+        val ys = FloatArray(nodes.size)
+        for (i in nodes.indices) {
+            val n = nodes[i]
+            xs[i] = (n.x + sin(t * n.speed + n.phase) * 0.035f) * width
+            ys[i] = (n.y + cos(t * n.speed * 0.8f + n.phase) * 0.035f) * height
+        }
+        val maxDist = 145f * density
+        val maxDist2 = maxDist * maxDist
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 0.8f * density
+        for (i in nodes.indices) for (j in i + 1 until nodes.size) {
+            val dx = xs[i] - xs[j]
+            val dy = ys[i] - ys[j]
+            val d2 = dx * dx + dy * dy
+            if (d2 < maxDist2) {
+                val proximity = 1f - d2 / maxDist2
+                val pulse = 0.5f + 0.5f * sin(t * 1.7f + nodes[i].phase + nodes[j].phase)
+                val alpha = (5f + proximity * 17f + pulse * 8f).toInt().coerceIn(5, 30)
+                paint.color = Color.argb(alpha, Color.red(tint), Color.green(tint), Color.blue(tint))
+                canvas.drawLine(xs[i], ys[i], xs[j], ys[j], paint)
+            }
+        }
+        paint.style = Paint.Style.FILL
+        for (i in nodes.indices) {
+            val pulse = 0.5f + 0.5f * sin(t * 1.5f + nodes[i].phase)
+            val alpha = (30f + pulse * 48f).toInt()
+            paint.color = Color.argb(alpha, Color.red(tint), Color.green(tint), Color.blue(tint))
+            canvas.drawCircle(xs[i], ys[i], (1.5f + pulse * 1.2f) * density, paint)
+            if (i % 6 == 0) {
+                paint.color = Color.argb((alpha * 0.45f).toInt(), 220, 235, 245)
+                canvas.drawCircle(xs[i], ys[i], (3f + pulse * 2f) * density, paint)
+            }
+        }
+    }
+}
+
 /** Softly drifting glyphs derived only from the current caller's name and number. */
 class CallerMatrixView(ctx: Context) : View(ctx) {
     private data class Glyph(val char: Char, val x: Float, val y: Float, val speed: Float, val size: Float, val phase: Float)
