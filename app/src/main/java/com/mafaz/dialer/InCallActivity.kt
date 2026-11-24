@@ -86,7 +86,7 @@ class FractalZoomView(ctx: Context) : View(ctx) {
             line.color = if (i % 5 == 0)
                 android.graphics.Color.argb(alpha, 112, 145, 145)
             else android.graphics.Color.argb(alpha, 190, 198, 204)
-            line.strokeWidth = if (i % 5 == 0) 1.25f * density else 0.95f * density
+            line.strokeWidth = if (i % 5 == 0) 1.75f * density else 1.35f * density
 
             val path = android.graphics.Path()
             val offset = when (sides) { 4 -> Math.PI / 4.0; 6 -> 0.0; else -> Math.PI / 8.0 }
