@@ -376,7 +376,7 @@ class MainActivity : Activity() {
                 restartService()
             }
         })
-        root.addView(sb)
+        (if (::settingsPage.isInitialized) settingsPage else root).addView(sb)
     }
 
     private fun showSettingsTab(name: String, tabs: LinearLayout) {
