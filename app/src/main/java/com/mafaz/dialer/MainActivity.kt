@@ -353,6 +353,8 @@ class MainActivity : Activity() {
             "expansion" to "Fractal Expansion",
             "aurora" to "Aurora Flow",
             "matrix" to "Caller Matrix",
+            "neural" to "Neural Network",
+            "random" to "Random (all effects)",
             "off" to "Off"
         )
         val selected = prefs.getString("call_visual", "expansion") ?: "expansion"
