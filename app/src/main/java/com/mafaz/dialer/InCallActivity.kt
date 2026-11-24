@@ -131,6 +131,7 @@ class InCallActivity : Activity() {
     private lateinit var expansionEffect: FractalZoomView
     private lateinit var auroraEffect: AuroraFlowView
     private lateinit var matrixEffect: CallerMatrixView
+    private lateinit var neuralEffect: NeuralNetworkView
     private lateinit var avatar: AvatarView
     private lateinit var nameT: TextView
     private lateinit var numberT: TextView
@@ -263,7 +264,8 @@ class InCallActivity : Activity() {
         expansionEffect = FractalZoomView(this)
         auroraEffect = AuroraFlowView(this)
         matrixEffect = CallerMatrixView(this)
-        for (effect in listOf(expansionEffect, auroraEffect, matrixEffect)) {
+        neuralEffect = NeuralNetworkView(this)
+        for (effect in listOf(expansionEffect, auroraEffect, matrixEffect, neuralEffect)) {
             effectsLayer.addView(effect, FrameLayout.LayoutParams(MP, MP))
         }
         root.addView(effectsLayer, FrameLayout.LayoutParams(MP, MP))
@@ -442,10 +444,18 @@ class InCallActivity : Activity() {
     }
 
     private fun applyVisualTheme() {
-        val theme = Ui.cfg(this).getString("call_visual", "expansion") ?: "expansion"
+        val cfg = Ui.cfg(this)
+        val saved = cfg.getString("call_visual", "expansion") ?: "expansion"
+        val theme = if (saved == "random") {
+            val options = listOf("expansion", "aurora", "matrix", "neural")
+            val previous = cfg.getString("call_visual_last_random", "")
+            val pool = options.filter { it != previous }.ifEmpty { options }
+            pool.random().also { cfg.edit().putString("call_visual_last_random", it).apply() }
+        } else saved
         expansionEffect.visibility = if (theme == "expansion") View.VISIBLE else View.GONE
         auroraEffect.visibility = if (theme == "aurora") View.VISIBLE else View.GONE
         matrixEffect.visibility = if (theme == "matrix") View.VISIBLE else View.GONE
+        neuralEffect.visibility = if (theme == "neural") View.VISIBLE else View.GONE
         effectsLayer.visibility = if (theme == "off") View.GONE else View.VISIBLE
     }
 
@@ -675,6 +685,7 @@ class InCallActivity : Activity() {
         avatar.bind(name, p?.contactId)
         if (changed) matrixEffect.setCaller(name, number)
         if (changed) auroraEffect.setCaller(name, number, avatarColor(name))
+        if (changed) neuralEffect.setCaller(avatarColor(name))
         if (changed) {
             val base = avatarColor(name)
             root.background = GradientDrawable(
