@@ -24,9 +24,7 @@ object Actions {
     private fun cc(ctx: Context): String = Ui.cfg(ctx).getString("cc", "94") ?: "94"
 
     private fun launch(ctx: Context, i: Intent) {
-        // Keep launches inside the current Activity task when possible. Adding NEW_TASK
-        // unconditionally sent Settings to a separate task from the floating dialler panel.
-        if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             ctx.startActivity(i)
         } catch (e: Exception) {
@@ -145,10 +143,7 @@ object Actions {
         launch(ctx, Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(addr))))
     }
 
-    fun openSettings(ctx: Context) {
-        if (ctx is PanelActivity) ctx.prepareForSettingsLaunch()
-        launch(ctx, Intent(ctx, MainActivity::class.java))
-    }
+    fun openSettings(ctx: Context) = launch(ctx, Intent(ctx, MainActivity::class.java))
 
     fun openContact(ctx: Context, p: Person) {
         val id = p.contactId ?: Repo.lookup(ctx, p.number)?.contactId
