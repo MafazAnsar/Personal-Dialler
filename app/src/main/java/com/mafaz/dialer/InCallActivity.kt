@@ -34,6 +34,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import kotlin.math.min
+import kotlin.math.cos
+import kotlin.math.sin
 
 class FractalZoomView(ctx: Context) : View(ctx) {
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -72,30 +74,26 @@ class FractalZoomView(ctx: Context) : View(ctx) {
         val rotation = phase * 5f
         for (i in 0 until 15) {
             val progress = ((i / 15f + phase) % 1f)
-            val scale = 0.12f + progress * 1.45f
-            val half = unit * scale * 0.5f
-            val alpha = (7f + (1f - progress) * 13f).toInt().coerceIn(5, 20)
-            line.color = if (i % 5 == 0) android.graphics.Color.argb(alpha, 105, 139, 139)
-                else android.graphics.Color.argb(alpha, 174, 183, 190)
-            line.strokeWidth = if (i % 5 == 0) 1.05f * density else 0.75f * density
+            val radius = unit * (0.12f + progress * 1.45f) * 0.5f
+            // A repeating mix of diamond, hexagon and octagonal frames avoids a rigid square tunnel.
+            val sides = when (i % 3) { 0 -> 4; 1 -> 6; else -> 8 }
+            val alpha = (12f + (1f - progress) * 18f).toInt().coerceIn(9, 30)
+            line.color = if (i % 5 == 0)
+                android.graphics.Color.argb(alpha, 112, 145, 145)
+            else android.graphics.Color.argb(alpha, 190, 198, 204)
+            line.strokeWidth = if (i % 5 == 0) 1.25f * density else 0.95f * density
+
+            val path = android.graphics.Path()
+            val offset = when (sides) { 4 -> Math.PI / 4.0; 6 -> 0.0; else -> Math.PI / 8.0 }
+            for (vertex in 0 until sides) {
+                val angle = (2.0 * Math.PI * vertex / sides) + offset
+                val x = cx + (radius * cos(angle)).toFloat()
+                val y = cy + (radius * sin(angle)).toFloat()
+                if (vertex == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            path.close()
             canvas.save()
             canvas.rotate(rotation + i * 2.2f, cx, cy)
-            val corner = half * 0.13f
-            val left = cx - half
-            val top = cy - half
-            val right = cx + half
-            val bottom = cy + half
-            val path = android.graphics.Path().apply {
-                moveTo(left + corner, top)
-                lineTo(right - corner, top)
-                lineTo(right, top + corner)
-                lineTo(right, bottom - corner)
-                lineTo(right - corner, bottom)
-                lineTo(left + corner, bottom)
-                lineTo(left, bottom - corner)
-                lineTo(left, top + corner)
-                close()
-            }
             canvas.drawPath(path, line)
             canvas.restore()
         }
