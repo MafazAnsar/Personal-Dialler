@@ -42,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var posBtn: Button
     private lateinit var gearBtn: Button
     private lateinit var actionsBox: LinearLayout
+    private lateinit var visualThemeBox: LinearLayout
 
     private fun dp(v: Int) = Ui.dp(this, v)
 
@@ -148,6 +149,12 @@ class MainActivity : Activity() {
         swatches = LinearLayout(this)
         root.addView(swatches)
         buildSwatches()
+        heading("Caller screen graphics", 16f)
+        text("Choose the ambient animation shown behind caller details. The caller-specific gradient remains in place.")
+        visualThemeBox = LinearLayout(this)
+        visualThemeBox.orientation = LinearLayout.VERTICAL
+        root.addView(visualThemeBox)
+        buildVisualThemeOptions()
         switch("Show popup after calls", "postcall", true)
         switch("Show quick toggles on the panel (flashlight, Bluetooth, Wi-Fi, data, Do Not Disturb, sound)", "showtoggles", false)
 
@@ -338,6 +345,35 @@ class MainActivity : Activity() {
             }
         })
         root.addView(sb)
+    }
+
+    private fun buildVisualThemeOptions() {
+        visualThemeBox.removeAllViews()
+        val choices = listOf(
+            "expansion" to "Fractal Expansion",
+            "mandelbrot" to "Mandelbrot Deep Zoom",
+            "matrix" to "Caller Matrix",
+            "off" to "Off"
+        )
+        val selected = prefs.getString("call_visual", "expansion") ?: "expansion"
+        for ((key, title) in choices) {
+            val b = Button(this)
+            b.text = (if (selected == key) "\u2713  " else "") + title
+            b.isAllCaps = false
+            b.setTextColor(Ui.text(this))
+            b.stateListAnimator = null
+            b.background = Ui.round(
+                if (selected == key) Ui.withAlpha(Ui.accent(this), 0x44) else Ui.card(this),
+                dp(12)
+            )
+            b.setOnClickListener {
+                prefs.edit().putString("call_visual", key).apply()
+                buildVisualThemeOptions()
+            }
+            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.topMargin = dp(5)
+            visualThemeBox.addView(b, lp)
+        }
     }
 
     private fun buildSwatches() {
