@@ -57,12 +57,9 @@ class DialerInCallService : InCallService() {
         CallManager.notifyChanged()
         updateNotification()
 
-        if (missed) {
-            val person = Repo.lookup(this, number)
-            MissedCallNotifier.show(this, person?.name ?: number, number)
-        } else {
-            PostCall.show(this, number)
-        }
+        // Android already posts its native missed-call notification for the default dialer.
+        // Do not create a duplicate notification or show the post-call popup for missed calls.
+        if (!missed) PostCall.show(this, number)
 
         if (CallManager.calls.isEmpty()) CallManager.service = null
     }
