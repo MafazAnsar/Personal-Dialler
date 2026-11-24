@@ -668,7 +668,7 @@ class InCallActivity : Activity() {
             noteT.visibility = View.GONE
         }
         avatar.bind(name, p?.contactId)
-        matrixEffect.setCaller(name, number)
+        if (changed) matrixEffect.setCaller(name, number)
         if (changed) {
             val base = avatarColor(name)
             root.background = GradientDrawable(
