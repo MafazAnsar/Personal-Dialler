@@ -351,7 +351,7 @@ class MainActivity : Activity() {
         visualThemeBox.removeAllViews()
         val choices = listOf(
             "expansion" to "Fractal Expansion",
-            "mandelbrot" to "Mandelbrot Deep Zoom",
+            "aurora" to "Aurora Flow",
             "matrix" to "Caller Matrix",
             "off" to "Off"
         )
