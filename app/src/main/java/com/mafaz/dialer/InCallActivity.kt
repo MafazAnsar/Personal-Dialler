@@ -35,6 +35,73 @@ import android.widget.TextView
 import android.widget.Toast
 import kotlin.math.min
 
+class FractalZoomView(ctx: Context) : View(ctx) {
+    private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private var phase = 0f
+    private val density = resources.displayMetrics.density
+    private val motion = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 18000L
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = android.view.animation.LinearInterpolator()
+        addUpdateListener {
+            phase = it.animatedValue as Float
+            invalidate()
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        motion.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        motion.cancel()
+        super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (width == 0 || height == 0) return
+        val cx = width * 0.5f
+        val cy = height * 0.43f
+        val unit = min(width, height) * 0.78f
+        val rotation = phase * 5f
+        for (i in 0 until 15) {
+            val progress = ((i / 15f + phase) % 1f)
+            val scale = 0.12f + progress * 1.45f
+            val half = unit * scale * 0.5f
+            val alpha = (7f + (1f - progress) * 13f).toInt().coerceIn(5, 20)
+            line.color = if (i % 5 == 0) android.graphics.Color.argb(alpha, 105, 139, 139)
+                else android.graphics.Color.argb(alpha, 174, 183, 190)
+            line.strokeWidth = if (i % 5 == 0) 1.05f * density else 0.75f * density
+            canvas.save()
+            canvas.rotate(rotation + i * 2.2f, cx, cy)
+            val corner = half * 0.13f
+            val left = cx - half
+            val top = cy - half
+            val right = cx + half
+            val bottom = cy + half
+            val path = android.graphics.Path().apply {
+                moveTo(left + corner, top)
+                lineTo(right - corner, top)
+                lineTo(right, top + corner)
+                lineTo(right, bottom - corner)
+                lineTo(right - corner, bottom)
+                lineTo(left + corner, bottom)
+                lineTo(left, bottom - corner)
+                lineTo(left, top + corner)
+                close()
+            }
+            canvas.drawPath(path, line)
+            canvas.restore()
+        }
+    }
+}
+
 class RingView(ctx: Context, private val color: Int) : View(ctx) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
 
@@ -184,6 +251,8 @@ class InCallActivity : Activity() {
 
         root = FrameLayout(this)
         root.setBackgroundColor(dark)
+        // Ambient vector artwork sits behind the existing caller-specific gradient.
+        root.addView(FractalZoomView(this), FrameLayout.LayoutParams(MP, MP))
         val scroll = ScrollView(this)
         scroll.isFillViewport = true
         scroll.isVerticalScrollBarEnabled = false
