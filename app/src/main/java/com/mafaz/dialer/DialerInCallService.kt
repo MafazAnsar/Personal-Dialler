@@ -10,6 +10,7 @@ import android.graphics.drawable.Icon
 import android.os.PowerManager
 import android.telecom.CallAudioState
 import android.telecom.Call
+import android.telecom.DisconnectCause
 import android.telecom.InCallService
 
 class DialerInCallService : InCallService() {
@@ -47,10 +48,22 @@ class DialerInCallService : InCallService() {
 
     override fun onCallRemoved(call: Call) {
         call.unregisterCallback(cb)
+        val number = CallManager.numberOf(call)
+        val details = call.details
+        val missed = details?.callDirection == Call.Details.DIRECTION_INCOMING &&
+            details.disconnectCause?.code == DisconnectCause.MISSED
+
         CallManager.calls.remove(call)
         CallManager.notifyChanged()
         updateNotification()
-        PostCall.show(this, CallManager.numberOf(call))
+
+        if (missed) {
+            val person = Repo.lookup(this, number)
+            MissedCallNotifier.show(this, person?.name ?: number, number)
+        } else {
+            PostCall.show(this, number)
+        }
+
         if (CallManager.calls.isEmpty()) CallManager.service = null
     }
 
