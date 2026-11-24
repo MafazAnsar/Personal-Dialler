@@ -68,10 +68,16 @@ class MandelbrotZoomView(ctx: Context) : View(ctx) {
                     }
                     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                     bitmap.setPixels(pixels, 0, w, 0, 0, w, h)
-                    val old = frame
-                    frame = bitmap
-                    old?.recycle()
-                    main.post { if (running) invalidate() }
+                    main.post {
+                        if (running) {
+                            val old = frame
+                            frame = bitmap
+                            invalidate()
+                            old?.recycle()
+                        } else {
+                            bitmap.recycle()
+                        }
+                    }
                     zoom *= 0.88
                     if (zoom < 0.00000025) zoom = 2.8
                     Thread.sleep(850)
