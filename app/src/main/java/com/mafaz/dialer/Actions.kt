@@ -24,7 +24,9 @@ object Actions {
     private fun cc(ctx: Context): String = Ui.cfg(ctx).getString("cc", "94") ?: "94"
 
     private fun launch(ctx: Context, i: Intent) {
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Keep launches inside the current Activity task when possible. Adding NEW_TASK
+        // unconditionally sent Settings to a separate task from the floating dialler panel.
+        if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             ctx.startActivity(i)
         } catch (e: Exception) {
