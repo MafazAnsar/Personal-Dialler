@@ -129,7 +129,7 @@ class InCallActivity : Activity() {
     private lateinit var root: FrameLayout
     private lateinit var effectsLayer: FrameLayout
     private lateinit var expansionEffect: FractalZoomView
-    private lateinit var mandelbrotEffect: MandelbrotZoomView
+    private lateinit var auroraEffect: AuroraFlowView
     private lateinit var matrixEffect: CallerMatrixView
     private lateinit var avatar: AvatarView
     private lateinit var nameT: TextView
@@ -261,9 +261,9 @@ class InCallActivity : Activity() {
         // All visual themes are layered over (not substituted for) the caller-specific gradient.
         effectsLayer = FrameLayout(this)
         expansionEffect = FractalZoomView(this)
-        mandelbrotEffect = MandelbrotZoomView(this)
+        auroraEffect = AuroraFlowView(this)
         matrixEffect = CallerMatrixView(this)
-        for (effect in listOf(expansionEffect, mandelbrotEffect, matrixEffect)) {
+        for (effect in listOf(expansionEffect, auroraEffect, matrixEffect)) {
             effectsLayer.addView(effect, FrameLayout.LayoutParams(MP, MP))
         }
         root.addView(effectsLayer, FrameLayout.LayoutParams(MP, MP))
@@ -444,7 +444,7 @@ class InCallActivity : Activity() {
     private fun applyVisualTheme() {
         val theme = Ui.cfg(this).getString("call_visual", "expansion") ?: "expansion"
         expansionEffect.visibility = if (theme == "expansion") View.VISIBLE else View.GONE
-        mandelbrotEffect.visibility = if (theme == "mandelbrot") View.VISIBLE else View.GONE
+        auroraEffect.visibility = if (theme == "aurora") View.VISIBLE else View.GONE
         matrixEffect.visibility = if (theme == "matrix") View.VISIBLE else View.GONE
         effectsLayer.visibility = if (theme == "off") View.GONE else View.VISIBLE
     }
@@ -674,6 +674,7 @@ class InCallActivity : Activity() {
         }
         avatar.bind(name, p?.contactId)
         if (changed) matrixEffect.setCaller(name, number)
+        if (changed) auroraEffect.setCaller(name, number, avatarColor(name))
         if (changed) {
             val base = avatarColor(name)
             root.background = GradientDrawable(
