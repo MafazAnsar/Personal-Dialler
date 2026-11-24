@@ -145,7 +145,10 @@ object Actions {
         launch(ctx, Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(addr))))
     }
 
-    fun openSettings(ctx: Context) = launch(ctx, Intent(ctx, MainActivity::class.java))
+    fun openSettings(ctx: Context) {
+        if (ctx is PanelActivity) ctx.prepareForSettingsLaunch()
+        launch(ctx, Intent(ctx, MainActivity::class.java))
+    }
 
     fun openContact(ctx: Context, p: Person) {
         val id = p.contactId ?: Repo.lookup(ctx, p.number)?.contactId
