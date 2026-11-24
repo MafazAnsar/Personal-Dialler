@@ -122,6 +122,10 @@ class InCallActivity : Activity() {
     private val inkOn = 0xFF101418.toInt()
 
     private lateinit var root: FrameLayout
+    private lateinit var effectsLayer: FrameLayout
+    private lateinit var expansionEffect: FractalZoomView
+    private lateinit var mandelbrotEffect: MandelbrotZoomView
+    private lateinit var matrixEffect: CallerMatrixView
     private lateinit var avatar: AvatarView
     private lateinit var nameT: TextView
     private lateinit var numberT: TextView
@@ -249,8 +253,16 @@ class InCallActivity : Activity() {
 
         root = FrameLayout(this)
         root.setBackgroundColor(dark)
-        // Ambient vector artwork sits behind the existing caller-specific gradient.
-        root.addView(FractalZoomView(this), FrameLayout.LayoutParams(MP, MP))
+        // All visual themes are layered over (not substituted for) the caller-specific gradient.
+        effectsLayer = FrameLayout(this)
+        expansionEffect = FractalZoomView(this)
+        mandelbrotEffect = MandelbrotZoomView(this)
+        matrixEffect = CallerMatrixView(this)
+        for (effect in listOf(expansionEffect, mandelbrotEffect, matrixEffect)) {
+            effectsLayer.addView(effect, FrameLayout.LayoutParams(MP, MP))
+        }
+        root.addView(effectsLayer, FrameLayout.LayoutParams(MP, MP))
+        applyVisualTheme()
         val scroll = ScrollView(this)
         scroll.isFillViewport = true
         scroll.isVerticalScrollBarEnabled = false
@@ -422,6 +434,14 @@ class InCallActivity : Activity() {
 
         CallManager.addListener(listener)
         render()
+    }
+
+    private fun applyVisualTheme() {
+        val theme = Ui.cfg(this).getString("call_visual", "expansion") ?: "expansion"
+        expansionEffect.visibility = if (theme == "expansion") View.VISIBLE else View.GONE
+        mandelbrotEffect.visibility = if (theme == "mandelbrot") View.VISIBLE else View.GONE
+        matrixEffect.visibility = if (theme == "matrix") View.VISIBLE else View.GONE
+        effectsLayer.visibility = if (theme == "off") View.GONE else View.VISIBLE
     }
 
     private fun startPulse() {
@@ -648,6 +668,7 @@ class InCallActivity : Activity() {
             noteT.visibility = View.GONE
         }
         avatar.bind(name, p?.contactId)
+        matrixEffect.setCaller(name, number)
         if (changed) {
             val base = avatarColor(name)
             root.background = GradientDrawable(
