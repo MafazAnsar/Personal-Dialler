@@ -43,7 +43,6 @@ class MainActivity : Activity() {
     private lateinit var gearBtn: Button
     private lateinit var actionsBox: LinearLayout
     private lateinit var visualThemeBox: LinearLayout
-    private lateinit var launcherBox: LinearLayout
 
     private fun dp(v: Int) = Ui.dp(this, v)
 
@@ -129,11 +128,7 @@ class MainActivity : Activity() {
             }
         }
 
-        heading("Floating launcher", 18f)
-        text("Launcher icon")
-        launcherBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(launcherBox)
-        buildLauncherChoices()
+        heading("Floating dots", 18f)
         toggle = addBtn("Start floating dots") { toggleService() }
         sideBtn = addBtn("Side") {
             val now = prefs.getString("side", "left")
@@ -350,23 +345,6 @@ class MainActivity : Activity() {
             }
         })
         root.addView(sb)
-    }
-
-    private fun buildLauncherChoices() {
-        launcherBox.removeAllViews()
-        val choices = listOf("dots" to "Dots", "coil" to "Classic Coil", "infinity" to "Infinity")
-        val selected = prefs.getString("launcher_icon", "dots") ?: "dots"
-        for ((key, label) in choices) {
-            val b = Button(this)
-            b.text = (if (selected == key) "\\u2713  " else "") + label
-            b.isAllCaps = false
-            b.setTextColor(Ui.text(this))
-            b.background = Ui.round(if (selected == key) Ui.withAlpha(Ui.accent(this), 0x44) else Ui.card(this), dp(12))
-            b.setOnClickListener { prefs.edit().putString("launcher_icon", key).apply(); restartService(); buildLauncherChoices() }
-            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            lp.topMargin = dp(5)
-            launcherBox.addView(b, lp)
-        }
     }
 
     private fun buildVisualThemeOptions() {
