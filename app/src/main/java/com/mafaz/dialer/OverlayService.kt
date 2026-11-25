@@ -138,17 +138,25 @@ class OverlayService : Service() {
             1 -> 8
             else -> 11
         }
-        val box = IconView(svc, "launcher_" + (prefs.getString("launcher_icon", "dots") ?: "dots"))
-        box.bgOverride = Ui.accent(svc)
-        box.forceCircle = true
-        box.glyphColor = 0xFFFFFFFF.toInt()
+        val box = LinearLayout(svc)
+        box.orientation = LinearLayout.VERTICAL
+        box.gravity = Gravity.CENTER
+        box.setPadding(dp(12), dp(14), dp(12), dp(14))
         box.alpha = max(20, prefs.getInt("dotalpha", 80)) / 100f
-        val iconSize = when (prefs.getInt("dotsize", 1)) { 0 -> 34; 1 -> 40; else -> 46 }
-        box.setPadding(dp(3), dp(3), dp(3), dp(3))
-        box.layoutParams = LinearLayout.LayoutParams(dp(iconSize), dp(iconSize))
+        val pill = GradientDrawable()
+        pill.setColor(0x33000000)
+        pill.cornerRadius = dp(14).toFloat()
+        box.background = pill
+        repeat(3) {
+            val dot = View(svc)
+            dot.background = Ui.circle(Ui.accent(svc))
+            val lp = LinearLayout.LayoutParams(dp(dotDp), dp(dotDp))
+            lp.setMargins(0, dp(3), 0, dp(3))
+            box.addView(dot, lp)
+        }
         val lp = WindowManager.LayoutParams(
-            dp(iconSize),
-            dp(iconSize),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
