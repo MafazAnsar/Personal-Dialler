@@ -213,6 +213,36 @@ class IconView(ctx: Context, var kind: String) : View(ctx) {
                 fill()
                 for (x in intArrayOf(28, 50, 72)) c.drawCircle(x.toFloat(), 50f, 7f, fg)
             }
+            "launcher_dots" -> {
+                fill()
+                for (y in intArrayOf(30, 50, 70)) c.drawCircle(50f, y.toFloat(), 7f, fg)
+            }
+            "launcher_coil" -> {
+                stroke(8f)
+                path.reset()
+                path.moveTo(50f, 18f)
+                path.lineTo(68f, 28f)
+                path.lineTo(32f, 38f)
+                path.lineTo(68f, 48f)
+                path.lineTo(32f, 58f)
+                path.lineTo(68f, 68f)
+                path.lineTo(32f, 78f)
+                path.lineTo(50f, 86f)
+                c.drawPath(path, fg)
+            }
+            "launcher_infinity" -> {
+                stroke(8f)
+                c.save()
+                c.rotate(90f, 50f, 50f)
+                path.reset()
+                path.moveTo(20f, 50f)
+                path.cubicTo(20f, 27f, 42f, 27f, 50f, 50f)
+                path.cubicTo(58f, 73f, 80f, 73f, 80f, 50f)
+                path.cubicTo(80f, 27f, 58f, 27f, 50f, 50f)
+                path.cubicTo(42f, 73f, 20f, 73f, 20f, 50f)
+                c.drawPath(path, fg)
+                c.restore()
+            }
             "call" -> drawCall(c, 0f)
             "hang" -> drawCall(c, 135f)
             "mic", "micoff" -> {
