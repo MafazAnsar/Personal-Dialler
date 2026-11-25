@@ -352,7 +352,11 @@ class MainActivity : Activity() {
         root.addView(sb)
     }
 
-    private fun buildLauncherChoices() {\n        launcherBox.removeAllViews()\n        val choices = listOf("dots" to "Dots", "coil" to "Classic Coil", "infinity" to "Infinity")\n        val selected = prefs.getString("launcher_icon", "dots") ?: "dots"\n        for ((key, label) in choices) {\n            val b = Button(this)\n            b.text = (if (selected == key) "\\u2713  " else "") + label\n            b.isAllCaps = false\n            b.setTextColor(Ui.text(this))\n            b.background = Ui.round(if (selected == key) Ui.withAlpha(Ui.accent(this), 0x44) else Ui.card(this), dp(12))\n            b.setOnClickListener { prefs.edit().putString("launcher_icon", key).apply(); restartService(); buildLauncherChoices() }\n            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)\n            lp.topMargin = dp(5)\n            launcherBox.addView(b, lp)\n        }\n    }\n\n    private fun buildVisualThemeOptions() {
+    private fun buildLauncherChoices() {
+        launcherBox.removeAllViews()\n        val choices = listOf("dots" to "Dots", "coil" to "Classic Coil", "infinity" to "Infinity")\n        val selected = prefs.getString("launcher_icon", "dots") ?: "dots"\n        for ((key, label) in choices) {\n            val b = Button(this)\n            b.text = (if (selected == key) "\\u2713  " else "") + label\n            b.isAllCaps = false\n            b.setTextColor(Ui.text(this))\n            b.background = Ui.round(if (selected == key) Ui.withAlpha(Ui.accent(this), 0x44) else Ui.card(this), dp(12))\n            b.setOnClickListener { prefs.edit().putString("launcher_icon", key).apply(); restartService(); buildLauncherChoices() }\n            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)\n            lp.topMargin = dp(5)\n            launcherBox.addView(b, lp)\n        }
+    }
+
+    private fun buildVisualThemeOptions() {
         visualThemeBox.removeAllViews()
         val choices = listOf(
             "expansion" to "Fractal Expansion",
